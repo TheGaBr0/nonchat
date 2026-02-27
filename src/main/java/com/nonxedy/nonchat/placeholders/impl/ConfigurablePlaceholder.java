@@ -11,10 +11,12 @@ import org.jetbrains.annotations.NotNull;
 
 import com.nonxedy.nonchat.api.InteractivePlaceholder;
 import com.nonxedy.nonchat.util.core.colors.ColorUtil;
+import com.nonxedy.nonchat.util.items.localization.ItemLocalizationUtil;
 
 import me.clip.placeholderapi.PlaceholderAPI;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
+import net.kyori.adventure.text.TextReplacementConfig;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
@@ -103,27 +105,53 @@ public class ConfigurablePlaceholder implements InteractivePlaceholder {
     }
 
     private Component processItemPlaceholder(Player player) {
-        // Process the format string with placeholders (get plain text)
-        String processedFormat = processPlaceholdersAsString(player, format);
-
-        // Create the main item component using custom format
-        Component itemComponent = ColorUtil.parseComponent(processedFormat);
+        // Process the format string
+        Component processedComponent = ColorUtil.parseComponent(format);
+        
+        // Get the item
+        ItemStack item = player.getInventory().getItemInMainHand();
+        
+        if (item == null || item.getType().isAir()) {
+            // Replace with Air for empty hand
+            processedComponent = processedComponent.replaceText(TextReplacementConfig.builder()
+                    .matchLiteral("{item_name}")
+                    .replacement(Component.text("Air"))
+                    .build());
+            processedComponent = processedComponent.replaceText(TextReplacementConfig.builder()
+                    .matchLiteral("{item_amount}")
+                    .replacement(Component.text("0"))
+                    .build());
+        } else {
+            // Get the localized item name component (this will be translated when sent to player)
+            Component itemNameComponent = ItemLocalizationUtil.createTranslatableItemComponent(item);
+            
+            // Replace placeholders at Component level (preserves translatable component)
+            processedComponent = processedComponent.replaceText(TextReplacementConfig.builder()
+                    .matchLiteral("{item_name}")
+                    .replacement(itemNameComponent)
+                    .build());
+            
+            processedComponent = processedComponent.replaceText(TextReplacementConfig.builder()
+                    .matchLiteral("{item_amount}")
+                    .replacement(Component.text(String.valueOf(item.getAmount())))
+                    .build());
+        }
 
         // Add hover text from config if configured
         if (hoverText != null && !hoverText.isEmpty()) {
             Component hoverComponent = createHoverComponent(player);
-            itemComponent = itemComponent.hoverEvent(HoverEvent.showText(hoverComponent));
+            processedComponent = processedComponent.hoverEvent(HoverEvent.showText(hoverComponent));
         }
 
         // Add click action if configured
         if (clickAction != null) {
             ClickEvent clickEvent = createClickEvent(player);
             if (clickEvent != null) {
-                itemComponent = itemComponent.clickEvent(clickEvent);
+                processedComponent = processedComponent.clickEvent(clickEvent);
             }
         }
 
-        return itemComponent;
+        return processedComponent;
     }
 
     private Component processPingPlaceholder(Player player) {
@@ -188,7 +216,7 @@ public class ConfigurablePlaceholder implements InteractivePlaceholder {
         // Special placeholders for item and ping
         if (placeholder.equals("item")) {
             org.bukkit.inventory.ItemStack item = player.getInventory().getItemInMainHand();
-            processed = processItemPlaceholders(processed, item);
+            processed = processItemPlaceholders(processed, player, item);
         } else if (placeholder.equals("ping")) {
             int ping = player.getPing();
             processed = processed.replace("{ping}", String.valueOf(ping));
@@ -209,7 +237,7 @@ public class ConfigurablePlaceholder implements InteractivePlaceholder {
         return ColorUtil.parseComponent(processed);
     }
 
-    private String processItemPlaceholders(String text, ItemStack item) {
+    private String processItemPlaceholders(String text, Player player, ItemStack item) {
         if (item == null || item.getType().isAir()) {
             text = text.replace("{item_name}", "Air");
             text = text.replace("{item_amount}", "0");
@@ -221,14 +249,13 @@ public class ConfigurablePlaceholder implements InteractivePlaceholder {
 
         // Basic item info - use Adventure API's displayName() instead of deprecated
         // getDisplayName()
-        String itemName;
-        if (item.getItemMeta() != null && item.getItemMeta().hasDisplayName()) {
-            // Use Adventure API to get display name as plain text
-            itemName = PlainTextComponentSerializer.plainText()
-                    .serialize(item.getItemMeta().displayName());
-        } else {
-            itemName = item.getType().name().replace("_", " ").toLowerCase();
-        }
+        // Use ItemLocalizationUtil for proper localization (handles both custom names and material names)
+        // Get player's locale for proper translation
+        String playerLocale = player.getLocale();
+        Component itemComponent = ItemLocalizationUtil.createTranslatableItemComponent(item, playerLocale);
+        
+        String itemName = PlainTextComponentSerializer.plainText()
+                .serialize(itemComponent);
 
         text = text.replace("{item_name}", itemName);
         text = text.replace("{item_amount}", String.valueOf(item.getAmount()));
@@ -302,7 +329,7 @@ public class ConfigurablePlaceholder implements InteractivePlaceholder {
         // Special placeholders for item and ping
         if (placeholder.equals("item")) {
             ItemStack item = player.getInventory().getItemInMainHand();
-            processed = processItemPlaceholders(processed, item);
+            processed = processItemPlaceholders(processed, player, item);
         } else if (placeholder.equals("ping")) {
             int ping = player.getPing();
             processed = processed.replace("{ping}", String.valueOf(ping));
