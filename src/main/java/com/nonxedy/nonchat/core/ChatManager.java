@@ -650,10 +650,11 @@ public class ChatManager {
         long recipientCount = Bukkit.getOnlinePlayers().stream()
                 // Skip players ignoring the sender
                 .filter(recipient -> ignoreCommand == null || !ignoreCommand.isIgnoring(recipient, sender))
-                // Check channel-specific conditions
-                .filter(recipient -> channel.canReceive(recipient))
-                // For local channels, also check range
-                .filter(recipient -> channel.isGlobal() || channel.isInRange(sender, recipient))
+                // Check for spy.all permission - bypass all restrictions
+                .filter(recipient -> recipient.hasPermission("nonchat.spy.all") || 
+                    // Normal filtering for players without spy.all permission
+                    (channel.canReceive(recipient) && 
+                     (channel.isGlobal() || channel.isInRange(sender, recipient))))
                 // Send message to filtered recipients and count them
                 .peek(recipient -> recipient.sendMessage(message))
                 .count();

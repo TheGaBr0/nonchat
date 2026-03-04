@@ -31,6 +31,7 @@ permissions:
       - nonchat.ignore
       - nonchat.sc
       - nonchat.spy
+      - nonchat.spy.all
       - nonchat.antiblockedwords
       - nonchat.chatbubbles
       - nonchat.me
@@ -115,6 +116,9 @@ permissions:
     default: op
   nonchat.spam.notify:
     description: Notify players about spam detection
+    default: op
+  nonchat.spy.all:
+    description: Receive all messages from all channels regardless of settings
     default: op
 
 commands:
