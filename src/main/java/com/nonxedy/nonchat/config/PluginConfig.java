@@ -817,7 +817,7 @@ public class PluginConfig {
      */
     @NotNull
     public List<String> getBannedWords() {
-        return config.getStringList("banned-words");
+        return config.getStringList("banned-words.words");
     }
 
     /**
@@ -826,7 +826,7 @@ public class PluginConfig {
      */
     @NotNull
     public List<String> getBannedPatterns() {
-        return config.getStringList("banned-patterns");
+        return config.getStringList("banned-words.patterns");
     }
 
     /**
@@ -836,6 +836,14 @@ public class PluginConfig {
     @NotNull
     public WordBlocker getWordBlocker() {
         return new WordBlocker(getBannedWords(), getBannedPatterns());
+    }
+
+    /**
+     * Checks if word blocking is enabled
+     * @return true if word blocking is enabled
+     */
+    public boolean isWordBlockingEnabled() {
+        return config.getBoolean("banned-words.enabled", true);
     }
 
     /**

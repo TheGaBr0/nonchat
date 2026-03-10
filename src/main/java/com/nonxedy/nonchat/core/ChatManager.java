@@ -527,6 +527,11 @@ public class ChatManager {
 
     private boolean handleBlockedWords(Player player, String message) {
         if (!player.hasPermission("nonchat.antiblockedwords")) {
+            // Check if word blocking is enabled
+            if (!config.isWordBlockingEnabled()) {
+                return false;
+            }
+            
             WordBlocker wordBlocker = config.getWordBlocker();
             // Check blocked words on the message without color codes
             String messageToCheck = ColorUtil.stripAllColors(message);
