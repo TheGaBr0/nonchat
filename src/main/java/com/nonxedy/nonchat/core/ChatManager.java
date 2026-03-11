@@ -208,6 +208,7 @@ public class ChatManager {
         // If a channel was found by prefix, update player's active channel and remove
         // the prefix
         if (channel.hasPrefix() && message.startsWith(channel.getPrefix())) {
+            channelManager.setPlayerChannel(player, channel.getId());
             finalMessage = message.substring(channel.getPrefix().length());
             if (finalMessage.trim().isEmpty()) {
                 return false; // Silently cancel empty messages after removing prefix
@@ -526,6 +527,11 @@ public class ChatManager {
 
     private boolean handleBlockedWords(Player player, String message) {
         if (!player.hasPermission("nonchat.antiblockedwords")) {
+            // Check if word blocking is enabled
+            if (!config.isWordBlockingEnabled()) {
+                return false;
+            }
+            
             WordBlocker wordBlocker = config.getWordBlocker();
             // Check blocked words on the message without color codes
             String messageToCheck = ColorUtil.stripAllColors(message);
