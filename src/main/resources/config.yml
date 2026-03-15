@@ -232,6 +232,8 @@ join-messages:
   enabled: true
   # The format for the join message.
   format: "§8(§a+§8) %luckperms_prefix% §f%player_name%§r %luckperms_suffix%"
+  # The format for the first join message (shown only once per player).
+  first-join-format: "§8(§a+§8) §f%player_name%§r §7joined for the first time!"
   # Enable/disable sound when player joins.
   sound-enabled: true
   # Sound to play when player joins (Minecraft sound names).

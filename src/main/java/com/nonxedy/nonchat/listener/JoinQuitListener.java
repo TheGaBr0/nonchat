@@ -1,5 +1,10 @@
 package com.nonxedy.nonchat.listener;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,10 +35,12 @@ public class JoinQuitListener implements Listener {
     private final PluginConfig config;
     private final ChannelManager channelManager;
     private final Map<Player, List<TextDisplay>> bubbles = new HashMap<>();
+    private final Path firstJoinFile;
     
     public JoinQuitListener(PluginConfig config, ChannelManager channelManager) {
         this.config = config;
         this.channelManager = channelManager;
+        this.firstJoinFile = Paths.get("plugins/nonchat/first_joins.txt");
     }
 
     /**
@@ -66,7 +73,20 @@ public class JoinQuitListener implements Listener {
         }
         
         Player player = event.getPlayer();
-        String joinFormat = config.getJoinFormat();
+        
+        // Check if this is the player's first join
+        boolean isFirstJoin = isFirstJoin(player);
+        
+        String joinFormat;
+        if (isFirstJoin) {
+            // Use first join message format
+            joinFormat = config.getFirstJoinFormat();
+            // Mark player as having joined before
+            markPlayerAsJoined(player);
+        } else {
+            // Use regular join message format
+            joinFormat = config.getJoinFormat();
+        }
         
         // Apply PlaceholderAPI if available
         if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
@@ -142,6 +162,44 @@ public class JoinQuitListener implements Listener {
             } catch (Exception e) {
                 Bukkit.getLogger().log(Level.WARNING, "Error playing quit sound: {0}", e.getMessage());
             }
+        }
+    }
+    
+    /**
+     * Checks if a player is joining for the first time
+     * @param player The player to check
+     * @return true if this is the player's first join
+     */
+    private boolean isFirstJoin(Player player) {
+        try {
+            if (!Files.exists(firstJoinFile)) {
+                Files.createDirectories(firstJoinFile.getParent());
+                Files.createFile(firstJoinFile);
+                return true;
+            }
+            
+            List<String> joinedPlayers = Files.readAllLines(firstJoinFile);
+            return !joinedPlayers.contains(player.getUniqueId().toString());
+        } catch (IOException e) {
+            Bukkit.getLogger().log(Level.WARNING, "Error checking first join status: {0}", e.getMessage());
+            return true; // Default to first join on error
+        }
+    }
+    
+    /**
+     * Marks a player as having joined the server
+     * @param player The player to mark
+     */
+    private void markPlayerAsJoined(Player player) {
+        try {
+            if (!Files.exists(firstJoinFile)) {
+                Files.createDirectories(firstJoinFile.getParent());
+                Files.createFile(firstJoinFile);
+            }
+            
+            Files.write(firstJoinFile, (player.getUniqueId().toString() + "\n").getBytes());
+        } catch (IOException e) {
+            Bukkit.getLogger().log(Level.WARNING, "Error marking player as joined: {0}", e.getMessage());
         }
     }
 }
