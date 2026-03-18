@@ -51,7 +51,7 @@ interactive-placeholders:
   # Activation: Use [placeholder] in chat to activate (e.g., [loc] activates location placeholder)
   # Available Variables in format and hover-text:
   #   Basic: {player}, {world}, {x}, {y}, {z}, {server_name}, {online_players}, {max_players}
-  #   Item (for item placeholder): {item_name}, {item_amount}, {item_lore}, {item_enchantments}, {item_durability}
+  #   Item (for item placeholder): {item_name}, {item_id}, {item_amount}, {item_lore}, {item_enchantments}, {item_durability}
   #   Ping (for ping placeholder): {ping}, {ping_quality}
   # Click Action Types: command, suggest_command, open_url, none
   # ==================================================
@@ -65,7 +65,7 @@ interactive-placeholders:
       permission: ""
       format: "&f[{item_name}]"
       hover-text:
-        - "&#FFAFFBItem: &f{item_name}"
+        - "&#FFAFFBItem ID: &f{item_id}"
         - "&#FFAFFBAmount: &f{item_amount}"
         - "&#FFAFFBLore: &f{item_lore}"
         - "&#FFAFFBEnchantments: &f{item_enchantments}"

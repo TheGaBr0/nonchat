@@ -244,6 +244,7 @@ public class ConfigurablePlaceholder implements InteractivePlaceholder {
             text = text.replace("{item_lore}", "");
             text = text.replace("{item_enchantments}", "");
             text = text.replace("{item_durability}", "");
+            text = text.replace("{item_id}", "air");
             return text;
         }
 
@@ -259,6 +260,7 @@ public class ConfigurablePlaceholder implements InteractivePlaceholder {
 
         text = text.replace("{item_name}", itemName);
         text = text.replace("{item_amount}", String.valueOf(item.getAmount()));
+        text = text.replace("{item_id}", item.getType().getKey().getKey());
 
         // Lore - use Adventure API's lore() instead of deprecated getLore()
         if (item.getItemMeta() != null && item.getItemMeta().hasLore()) {
