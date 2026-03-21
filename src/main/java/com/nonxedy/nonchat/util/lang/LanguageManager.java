@@ -12,8 +12,6 @@ import org.bukkit.Bukkit;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 
-import com.nonxedy.nonchat.util.core.colors.ColorUtil;
-
 // Manages language files and provides methods to load and get translations
 public class LanguageManager {
 
