@@ -3,6 +3,7 @@ package com.nonxedy.nonchat.listener;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.logging.Level;
 
 import org.bukkit.Bukkit;
@@ -30,6 +31,7 @@ public class JoinQuitListener implements Listener {
     private final PluginConfig config;
     private final ChannelManager channelManager;
     private final Map<Player, List<TextDisplay>> bubbles = new HashMap<>();
+    private final Map<UUID, Boolean> firstJoinCache = new HashMap<>();
     
     public JoinQuitListener(PluginConfig config, ChannelManager channelManager) {
         this.config = config;
@@ -66,7 +68,21 @@ public class JoinQuitListener implements Listener {
         }
         
         Player player = event.getPlayer();
-        String joinFormat = config.getJoinFormat();
+        UUID playerId = player.getUniqueId();
+        
+        // Check if this is the player's first join using hasPlayedBefore()
+        boolean isFirstJoin = !player.hasPlayedBefore();
+        
+        String joinFormat;
+        if (isFirstJoin) {
+            // Use first join message format
+            joinFormat = config.getFirstJoinFormat();
+            // Cache this information
+            firstJoinCache.put(playerId, true);
+        } else {
+            // Use regular join message format
+            joinFormat = config.getJoinFormat();
+        }
         
         // Apply PlaceholderAPI if available
         if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {

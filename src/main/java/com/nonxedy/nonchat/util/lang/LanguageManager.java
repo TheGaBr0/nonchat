@@ -120,11 +120,11 @@ public class LanguageManager {
     }
 
     /**
-     * Retrieves a colored message from the current language configuration
+     * Retrieves a raw message from the current language configuration
      * @param key The message key to retrieve
-     * @return The colored message string, or an error message if key not found
+     * @return The raw message string, or an error message if key not found
      */
     public String getMessage(String key) {
-        return ColorUtil.parseColor(currentLang.getString(key, "Missing message: " + key));
+        return currentLang.getString(key, "Missing message: " + key);
     }
 }

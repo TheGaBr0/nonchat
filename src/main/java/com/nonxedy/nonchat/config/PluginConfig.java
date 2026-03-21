@@ -128,6 +128,7 @@ public class PluginConfig {
         // Join/Quit messages settings
         config.set("join-messages.enabled", true);
         config.set("join-messages.format", "§8(§a+§8) %luckperms_prefix% §f%player_name%§r %luckperms_suffix%");
+        config.set("join-messages.first-join-format", "§8(§a+§8) §f%player_name%§r §7joined for the first time!");
         config.set("quit-messages.enabled", true);
         config.set("quit-messages.format", "§8(§c-§8) %luckperms_prefix% §f%player_name%§r %luckperms_suffix%");
         
@@ -456,6 +457,15 @@ public class PluginConfig {
     @NotNull
     public String getJoinFormat() {
         return config.getString("join-messages.format", "§8(§a+§8) %luckperms_prefix% §f%player_name%§r %luckperms_suffix%");
+    }
+    
+    /**
+     * Gets first join message format
+     * @return Formatted first join message string
+     */
+    @NotNull
+    public String getFirstJoinFormat() {
+        return config.getString("join-messages.first-join-format", "§8(§a+§8) §f%player_name%§r §7joined for the first time!");
     }
     
     /**

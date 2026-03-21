@@ -1,14 +1,21 @@
 package com.nonxedy.nonchat.util.items.localization;
 
+import java.text.MessageFormat;
+import java.util.Locale;
+
 import org.bukkit.Material;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemStack;
 
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.TranslatableComponent;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import net.kyori.adventure.translation.GlobalTranslator;
+import net.kyori.adventure.translation.Translator;
 
 /**
  * Utility class for localizing item and enchantment names using Minecraft's translation system
- * Based on InteractiveChat's approach
+ * Uses Paper's GlobalTranslator API for server-side translation
  */
 public class ItemLocalizationUtil {
     
@@ -63,18 +70,155 @@ public class ItemLocalizationUtil {
      * @return Translatable component
      */
     public static Component createTranslatableItemComponent(ItemStack item) {
+        return createTranslatableItemComponent(item, null);
+    }
+    
+    /**
+     * Creates a translatable component for an item with specific locale
+     * Uses Paper's GlobalTranslator for server-side translation
+     * @param item The item to create component for
+     * @param locale The locale to use for translation (e.g., "ru_ru"), or null for default
+     * @return Translatable component or translated text
+     */
+    public static Component createTranslatableItemComponent(ItemStack item, String locale) {
         if (item == null || item.getType().isAir()) {
             return Component.translatable("item.minecraft.air");
         }
         
-        // Check if item has custom display name
+        // Check if item has custom display name - use that instead of translating
         if (item.hasItemMeta() && item.getItemMeta().hasDisplayName()) {
             return item.getItemMeta().displayName();
         }
         
-        // Use Minecraft's translation key
+        // Get the translation key for this item
         String translationKey = getTranslationKey(item.getType());
-        return Component.translatable(translationKey);
+        
+        // Create a translatable component
+        TranslatableComponent translatable = Component.translatable(translationKey);
+        
+        // If locale is provided, try to translate server-side
+        if (locale != null && !locale.isEmpty()) {
+            try {
+                // Convert locale string to Locale object
+                Locale targetLocale = parseLocale(locale);
+                
+                // Try to get translation from GlobalTranslator
+                Component translated = translateWithGlobalTranslator(translationKey, targetLocale);
+                
+                // If translation was successful, return it
+                if (translated != null) {
+                    return translated;
+                }
+            } catch (Exception e) {
+                // Fallback to translatable component if translation fails
+            }
+        }
+        
+        return translatable;
+    }
+    
+    /**
+     * Gets the translated item name as a plain string
+     * Uses Paper's GlobalTranslator for server-side translation
+     * @param item The item to translate
+     * @param locale The locale to translate to (e.g., "ru_ru")
+     * @return Translated item name as string
+     */
+    public static String getTranslatedItemName(ItemStack item, String locale) {
+        if (item == null || item.getType().isAir()) {
+            return "Air";
+        }
+        
+        // Check if item has custom display name
+        if (item.hasItemMeta() && item.getItemMeta().hasDisplayName()) {
+            return PlainTextComponentSerializer.plainText()
+                    .serialize(item.getItemMeta().displayName());
+        }
+        
+        // Get the translation key for this item
+        String translationKey = getTranslationKey(item.getType());
+        
+        // If locale is provided, try to translate
+        if (locale != null && !locale.isEmpty()) {
+            try {
+                Locale targetLocale = parseLocale(locale);
+                
+                // Try to translate using GlobalTranslator
+                Component translated = translateWithGlobalTranslator(translationKey, targetLocale);
+                
+                if (translated != null) {
+                    return PlainTextComponentSerializer.plainText().serialize(translated);
+                }
+            } catch (Exception e) {
+                // TODO: add logger
+            }
+        }
+        
+        // Fallback: format the material name ourselves
+        return formatMaterialName(item.getType().name());
+    }
+    
+    /**
+     * Translates a string using GlobalTranslator
+     * @param key The translation key
+     * @param locale The target locale
+     * @return Translated component
+     */
+    private static Component translateWithGlobalTranslator(String key, Locale locale) {
+        try {
+            // Get the GlobalTranslator instance
+            Translator translator = GlobalTranslator.translator();
+            
+            if (translator == null) {
+                return null;
+            }
+            
+            // Translate returns MessageFormat, convert to string then to Component
+            MessageFormat translated = translator.translate(key, locale);
+            
+            if (translated != null) {
+                // Format the MessageFormat to a string
+                String translatedText = translated.toPattern();
+                // Also try to format with empty arguments
+                try {
+                    translatedText = translated.format(new Object[]{});
+                } catch (Exception e) {
+                    // Ignore - use the pattern
+                }
+                return Component.text(translatedText);
+            }
+            
+            return null;
+        } catch (Exception e) {
+            return null; // TODO: add logger
+        }
+    }
+    
+    /**
+     * Parses a locale string (e.g., "ru_ru", "en-US") into a Locale object
+     * @param localeString The locale string
+     * @return Locale object
+     */
+    private static Locale parseLocale(String localeString) {
+        if (localeString == null || localeString.isEmpty()) {
+            return Locale.ENGLISH;
+        }
+        
+        // Handle Minecraft locale format (ru_ru) -> Java format (ru_RU)
+        String locale = localeString.replace("_", "-");
+        
+        // Split by dash
+        String[] parts = locale.split("-");
+        
+        if (parts.length >= 2) {
+            // Format: ru_RU
+            return new Locale(parts[0], parts[1].toUpperCase());
+        } else if (parts.length == 1) {
+            // Format: ru
+            return new Locale(parts[0]);
+        }
+        
+        return Locale.ENGLISH;
     }
     
     /**
