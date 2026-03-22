@@ -208,7 +208,6 @@ public class ChatManager {
         // If a channel was found by prefix, update player's active channel and remove
         // the prefix
         if (channel.hasPrefix() && message.startsWith(channel.getPrefix())) {
-            channelManager.setPlayerChannel(player, channel.getId());
             finalMessage = message.substring(channel.getPrefix().length());
             if (finalMessage.trim().isEmpty()) {
                 return false; // Silently cancel empty messages after removing prefix
