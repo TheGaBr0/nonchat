@@ -95,17 +95,30 @@ public class ColorUtil {
         String cached = COLOR_CACHE.get(message);
         if (cached != null) return cached;
 
-        // Convert &x&R&G&B&R&G&B -> §x§R§G§B§R§G§B before translateAlternateColorCodes
-        // processes the individual &R, &G, &B codes independently.
-        String preProcessed = convertAmpersandHexToBungee(message);
+        //  Convert &x&R&G&B&R&G&B -> §x§R§G§B§R§G§B
+        Matcher ampMatcher = AMPERSAND_HEX_PATTERN.matcher(message);
+        StringBuffer ampBuffer = new StringBuffer(message.length());
+        while (ampMatcher.find()) {
+            String bungee = "§x"
+                    + "§" + ampMatcher.group(1)
+                    + "§" + ampMatcher.group(2)
+                    + "§" + ampMatcher.group(3)
+                    + "§" + ampMatcher.group(4)
+                    + "§" + ampMatcher.group(5)
+                    + "§" + ampMatcher.group(6);
+            ampMatcher.appendReplacement(ampBuffer, Matcher.quoteReplacement(bungee));
+        }
+        ampMatcher.appendTail(ampBuffer);
+        String preProcessed = ampBuffer.toString();
 
+        //Translate standard &x codes
         String withTranslated = ChatColor.translateAlternateColorCodes('&', preProcessed);
 
-        Matcher matcher = HEX_PATTERN.matcher(withTranslated);
+        // Convert &#RRGGBB -> §x§R§G§B§R§G§B
+        Matcher hexMatcher = HEX_PATTERN.matcher(withTranslated);
         StringBuilder buffer = new StringBuilder(withTranslated.length() + 32);
-
-        while (matcher.find()) {
-            String hex = matcher.group(1);
+        while (hexMatcher.find()) {
+            String hex = hexMatcher.group(1);
             String bungeeHex = "§x"
                     + "§" + hex.charAt(0)
                     + "§" + hex.charAt(1)
@@ -113,10 +126,9 @@ public class ColorUtil {
                     + "§" + hex.charAt(3)
                     + "§" + hex.charAt(4)
                     + "§" + hex.charAt(5);
-            matcher.appendReplacement(buffer, Matcher.quoteReplacement(bungeeHex));
+            hexMatcher.appendReplacement(buffer, Matcher.quoteReplacement(bungeeHex));
         }
-
-        matcher.appendTail(buffer);
+        hexMatcher.appendTail(buffer);
 
         String result = buffer.toString();
         COLOR_CACHE.put(message, result);
@@ -315,32 +327,6 @@ public class ColorUtil {
         } catch (IllegalArgumentException e) {
             return Color.BLACK;
         }
-    }
-
-    /**
-     * Converts &x&R&G&B&R&G&B -> §x§R§G§B§R§G§B before translateAlternateColorCodes
-     * runs and misinterprets the individual nibble codes as standalone colors.
-     */
-    private static String convertAmpersandHexToBungee(String message) {
-        Matcher matcher = AMPERSAND_HEX_PATTERN.matcher(message);
-        if (!matcher.find()) return message;
-
-        StringBuffer buffer = new StringBuffer(message.length());
-        matcher.reset();
-
-        while (matcher.find()) {
-            String bungee = "§x"
-                    + "§" + matcher.group(1)
-                    + "§" + matcher.group(2)
-                    + "§" + matcher.group(3)
-                    + "§" + matcher.group(4)
-                    + "§" + matcher.group(5)
-                    + "§" + matcher.group(6);
-            matcher.appendReplacement(buffer, Matcher.quoteReplacement(bungee));
-        }
-
-        matcher.appendTail(buffer);
-        return buffer.toString();
     }
 
     /**
