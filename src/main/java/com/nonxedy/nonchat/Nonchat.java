@@ -45,6 +45,9 @@ import com.nonxedy.nonchat.util.core.updates.UpdateChecker;
 import com.nonxedy.nonchat.util.integration.external.IntegrationUtil;
 import com.nonxedy.nonchat.util.integration.metrics.Metrics;
 
+import dev.faststats.bukkit.BukkitMetrics;
+import dev.faststats.core.ErrorTracker;
+import dev.faststats.core.data.Metric;
 import lombok.extern.slf4j.Slf4j;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextColor;
@@ -70,6 +73,26 @@ public class Nonchat extends JavaPlugin {
     private DamageTrackingListener damageTrackingListener;
     private PlayerCleanupListener playerCleanupListener;
     private final Map<Player, List<TextDisplay>> bubbles = new HashMap<>();
+
+    public static final ErrorTracker ERROR_TRACKER = ErrorTracker.contextAware();
+    private final BukkitMetrics metrics = BukkitMetrics.factory()
+        // Required: Your API token
+        // This token does not have to be treated as a secret
+        .token("b1aef8463d939edcdbdd4027352dcc86")
+        // Optional: Add custom metrics
+        .addMetric(Metric.number("worlds", () -> getServer().getWorlds().size()))
+        .addMetric(Metric.number("plugins", () -> getServer().getPluginManager().getPlugins().length))
+        .addMetric(Metric.number("players_online", () -> getServer().getOnlinePlayers().size()))
+        // Optional: Attach an error tracker
+        // This must be enabled in the project settings
+        .errorTracker(ERROR_TRACKER)
+        // Optional: Project specific debug logging, useful during development
+        .debug(true)
+        // Optional: Called when metrics data is flushed and the server accepted the data
+        // Useful for cleaning up data, invalidating caches, or resetting counters
+        .onFlush(() -> resetCounters())
+        // Create the metrics instance
+        .create(this);
 
     @Override
     public void onEnable() {
@@ -370,9 +393,20 @@ public class Nonchat extends JavaPlugin {
             Bukkit.getConsoleSender().sendMessage(Component.text()
                     .append(Component.text("[nonchat] ", TextColor.fromHexString("#E088FF")))
                     .append(Component.text("plugin disabled", TextColor.fromHexString("#FF5252"))));
+            
+            metrics.shutdown();
         } catch (Exception e) {
             getLogger().log(Level.WARNING, "Error during plugin shutdown: {0}", e.getMessage());
         }
+    }
+
+    /**
+     * Resets counters for metrics collection.
+     * This method is called when metrics data is flushed.
+     */
+    private void resetCounters() {
+        // Reset any counters or metrics data here if needed
+        // Currently no specific counters to reset, but method is required by metrics API
     }
 
     @Override
@@ -615,6 +649,4 @@ public class Nonchat extends JavaPlugin {
             throw new RuntimeException("Death message service is not initialized");
         }
     }
-    
-
 }

@@ -116,6 +116,11 @@
       <id>Scarsz-Nexus</id>
       <url>https://nexus.scarsz.me/content/groups/public/</url>
     </repository>
+    <repository>
+      <id>faststats-releases</id>
+      <name>FastStats</name>
+      <url>https://repo.faststats.dev/releases</url>
+    </repository>
   </repositories>
   <dependencies>
     <dependency>

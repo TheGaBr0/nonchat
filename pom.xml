@@ -42,6 +42,11 @@
 			<id>Scarsz-Nexus</id>
 			<url>https://nexus.scarsz.me/content/groups/public/</url>
 		</repository>
+		<repository>
+  			<id>faststats-releases</id>
+  			<name>FastStats</name>
+  			<url>https://repo.faststats.dev/releases</url>
+		</repository>
 	</repositories>
 
 	<dependencies>
@@ -103,6 +108,11 @@
 			<artifactId>bstats-bukkit</artifactId>
 			<version>3.0.2</version>
 			<scope>compile</scope>
+		</dependency>
+		<dependency>
+  			<groupId>dev.faststats.metrics</groupId>
+  			<artifactId>bukkit</artifactId>
+  			<version>0.18.1</version>
 		</dependency>
 		<dependency>
   			<groupId>org.apache.commons</groupId>
