@@ -315,6 +315,13 @@ public class BaseChannel implements Channel {
             return hexMatcher.group(1);
         }
         
+        // Check for BungeeCord hex format (§x§R§G§B§R§G§B or &x&R&G&B&R&G&B)
+        Pattern bungeePattern = Pattern.compile(".*(?i)(§x(?:§[0-9a-fA-F]){6}|&x(?:&[0-9a-fA-F]){6})(?:[^§&]*?)$");
+        Matcher bungeeMatcher = bungeePattern.matcher(formatPart);
+        if (bungeeMatcher.find()) {
+            return bungeeMatcher.group(1);
+        }
+        
         // Check for legacy colors (§[0-9a-fklmnor] or &[0-9a-fklmnor])
         Pattern legacyPattern = Pattern.compile(".*(§[0-9a-fklmnor]|&[0-9a-fklmnor])(?:[^§&]*?)$");
         Matcher legacyMatcher = legacyPattern.matcher(formatPart);
