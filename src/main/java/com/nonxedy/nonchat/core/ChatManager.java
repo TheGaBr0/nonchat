@@ -196,18 +196,28 @@ public class ChatManager {
         // channel
         Channel channel = channelManager.getChannelForMessage(message);
 
-        // If no channel was found by prefix, use the player's active channel
-        if (channel == null || !channel.hasPrefix() || !message.startsWith(channel.getPrefix())) {
-            channel = channelManager.getPlayerChannel(player);
-            if (channel == null) {
-                return false; // Silently cancel if no channel available
+        // If no channel was found by prefix, try to find a channel without prefix
+        // or use the player's active channel
+        if (channel == null) {
+            // First, try to find a channel without prefix for messages without prefix
+            Channel noPrefixChannel = channelManager.getChannelWithoutPrefix();
+            if (noPrefixChannel != null) {
+                channel = noPrefixChannel;
+                channelManager.setPlayerChannel(player, channel.getId());
+            } else {
+                // Fall back to player's active channel
+                channel = channelManager.getPlayerChannel(player);
+                if (channel == null) {
+                    return false; // Silently cancel if no channel available
+                }
             }
         }
 
         String finalMessage;
         // If a channel was found by prefix, update player's active channel and remove
-        // the prefix
+        // the prefix. This is needed for DiscordSRV to see the correct channel.
         if (channel.hasPrefix() && message.startsWith(channel.getPrefix())) {
+            channelManager.setPlayerChannel(player, channel.getId());
             finalMessage = message.substring(channel.getPrefix().length());
             if (finalMessage.trim().isEmpty()) {
                 return false; // Silently cancel empty messages after removing prefix

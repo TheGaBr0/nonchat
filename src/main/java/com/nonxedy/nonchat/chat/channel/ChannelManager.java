@@ -492,12 +492,12 @@ public class ChannelManager {
      * If multiple channels have prefixes that match the message start,
      * the channel with the longest matching prefix is selected.
      * @param message The message to check
-     * @return The appropriate channel, or default if no match
+     * @return The appropriate channel, or null if no prefix match found
      */
-    @NotNull
+    @Nullable
     public Channel getChannelForMessage(String message) {
         if (message == null || message.isEmpty()) {
-            return getDefaultChannel();
+            return null;
         }
         
         // Find all channels whose prefix matches the start of the message
@@ -508,7 +508,21 @@ public class ChannelManager {
             .filter(channel -> message.startsWith(channel.getPrefix()))
             .sorted((c1, c2) -> Integer.compare(c2.getPrefix().length(), c1.getPrefix().length()))
             .findFirst()
-            .orElse(getDefaultChannel());
+            .orElse(null);
+    }
+    
+    /**
+     * Finds a channel without a prefix (empty prefix channel).
+     * If multiple channels have no prefix, returns the first enabled one found.
+     * @return The channel without prefix, or null if none found
+     */
+    @Nullable
+    public Channel getChannelWithoutPrefix() {
+        return channels.values().stream()
+            .filter(Channel::isEnabled)
+            .filter(channel -> !channel.hasPrefix())
+            .findFirst()
+            .orElse(null);
     }
     
     /**
