@@ -526,6 +526,48 @@ public class ChannelManager {
     }
     
     /**
+     * Determines the channel for a message based on its prefix, checking player permissions first.
+     * If multiple channels have prefixes that match the message start, the channel with the 
+     * longest matching prefix is selected, but only if the player has permission to send to it.
+     * @param message The message to check
+     * @param player The player sending the message
+     * @return The appropriate channel the player has permission for, or null if no match found
+     */
+    @Nullable
+    public Channel getChannelForMessageWithPermission(String message, Player player) {
+        if (message == null || message.isEmpty()) {
+            return null;
+        }
+        
+        // Find all channels whose prefix matches the start of the message
+        // Filter by player permission (canSend)
+        // Sort by prefix length (longest first) to prioritize longer prefixes
+        return channels.values().stream()
+            .filter(Channel::isEnabled)
+            .filter(Channel::hasPrefix)
+            .filter(channel -> message.startsWith(channel.getPrefix()))
+            .filter(channel -> channel.canSend(player))
+            .sorted((c1, c2) -> Integer.compare(c2.getPrefix().length(), c1.getPrefix().length()))
+            .findFirst()
+            .orElse(null);
+    }
+    
+    /**
+     * Finds a channel without a prefix that the player has permission to send to.
+     * @param player The player to check permissions for
+     * @return The channel without prefix that player can use, or null if none found
+     */
+    @Nullable
+    public Channel getChannelWithoutPrefixForPlayer(Player player) {
+        return channels.values().stream()
+            .filter(Channel::isEnabled)
+            .filter(channel -> !channel.hasPrefix())
+            .filter(channel -> channel.canSend(player))
+            .findFirst()
+            .orElse(null);
+    }
+    
+    /**
      * Finds a channel by its trigger prefix.
      * @param prefix The prefix to search for
      * @return Optional containing the channel, or empty if not found

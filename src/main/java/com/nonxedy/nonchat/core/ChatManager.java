@@ -193,19 +193,19 @@ public class ChatManager {
         String message = context.messageContent;
 
         // Determine which channel to use based on message prefix or player's active
-        // channel
-        Channel channel = channelManager.getChannelForMessage(message);
+        // channel, checking player permissions first
+        Channel channel = channelManager.getChannelForMessageWithPermission(message, player);
 
-        // If no channel was found by prefix, try to find a channel without prefix
-        // or use the player's active channel
+        // If no channel was found by prefix with permission check, try to find a channel 
+        // without prefix that the player has permission for, or use the player's active channel
         if (channel == null) {
-            // First, try to find a channel without prefix for messages without prefix
-            Channel noPrefixChannel = channelManager.getChannelWithoutPrefix();
+            // First, try to find a channel without prefix that player has permission for
+            Channel noPrefixChannel = channelManager.getChannelWithoutPrefixForPlayer(player);
             if (noPrefixChannel != null) {
                 channel = noPrefixChannel;
                 channelManager.setPlayerChannel(player, channel.getId());
             } else {
-                // Fall back to player's active channel
+                // Fall back to player's active channel (will be validated later)
                 channel = channelManager.getPlayerChannel(player);
                 if (channel == null) {
                     return false; // Silently cancel if no channel available
