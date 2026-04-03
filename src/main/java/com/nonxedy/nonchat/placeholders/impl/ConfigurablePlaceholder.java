@@ -19,6 +19,7 @@ import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.TextReplacementConfig;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
+import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 
@@ -265,7 +266,6 @@ public class ConfigurablePlaceholder implements InteractivePlaceholder {
         text = text.replace("{item_id}", item.getType().getKey().getKey());
 
         // Lore - use Adventure API's lore() instead of deprecated getLore()
-        // Use LegacyComponentSerializer to preserve colors in lore
         if (item.getItemMeta() != null && item.getItemMeta().hasLore()) {
             StringBuilder loreBuilder = new StringBuilder();
             List<Component> loreComponents = item.getItemMeta().lore();
@@ -273,9 +273,9 @@ public class ConfigurablePlaceholder implements InteractivePlaceholder {
                 for (Component loreLine : loreComponents) {
                     if (loreBuilder.length() > 0)
                         loreBuilder.append("\n");
-                    // Convert Component to legacy section format to preserve colors
-                    String coloredLore = LegacyComponentSerializer.legacySection()
-                            .serialize(loreLine);
+                    // Convert Component to MiniMessage format to preserve all formatting
+                    // This handles gradients, hex colors, and other advanced formatting
+                    String coloredLore = MiniMessage.miniMessage().serialize(loreLine);
                     loreBuilder.append(coloredLore);
                 }
             }
