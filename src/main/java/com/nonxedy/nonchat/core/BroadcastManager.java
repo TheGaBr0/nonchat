@@ -6,8 +6,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import com.nonxedy.nonchat.util.integration.external.IntegrationUtil;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitTask;
 
 import com.nonxedy.nonchat.Nonchat;
@@ -62,27 +64,35 @@ public class BroadcastManager {
         }
     }
 
-    @SuppressWarnings("deprecation") // broadcastMessage() is deprecated but required for legacy server compatibility
     public void broadcast(CommandSender sender, String message) {
         try {
-            Component formatted;
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                // Process PAPI placeholders for each player individually
+                String parsedMessage = IntegrationUtil.processPlaceholders(player, message);
 
-            // Check if message contains MiniMessage tags
-            if (ColorUtil.containsMiniMessageTags(message)) {
-                // Parse with MiniMessage for full tag support (including click events)
-                formatted = ColorUtil.parseMiniMessageComponent(message);
-            } else {
-                // Use LinkDetector to make links clickable for legacy messages
-                formatted = LinkDetector.makeLinksClickable(message);
+                Component formatted;
+                // Check if message contains MiniMessage tags
+                if (ColorUtil.containsMiniMessageTags(parsedMessage)) {
+                    formatted = ColorUtil.parseMiniMessageComponent(parsedMessage);
+                } else {
+                    // Use LinkDetector to make links clickable for legacy messages
+                    formatted = LinkDetector.makeLinksClickable(parsedMessage);
+                }
+                // Try to use Adventure API first
+                player.sendMessage(formatted);
             }
 
-            // Try to use Adventure API first
-            Bukkit.broadcast(formatted);
+            // Console log using the raw message (no player context for PAPI)
+            String consoleMessage = ColorUtil.stripAllColors(message);
+            plugin.getLogger().info(consoleMessage);
+
         } catch (NoSuchMethodError e) {
-            // Fall back to traditional Bukkit broadcast if Adventure API is not available
+            // Fall back to traditional Bukkit sendMessage if Adventure API is not available
             plugin.logError("Adventure API isn't available: " + e.getMessage());
-            String legacyMessage = ColorUtil.parseColor(message);
-            Bukkit.broadcastMessage(legacyMessage);
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                String parsedMessage = IntegrationUtil.processPlaceholders(player, message);
+                player.sendMessage(ColorUtil.parseColor(parsedMessage));
+            }
         }
     }
 
