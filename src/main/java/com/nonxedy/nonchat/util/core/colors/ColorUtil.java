@@ -387,7 +387,7 @@ public class ColorUtil {
         return result;
     }
 
-    private static String safelyConvertLegacyColors(String message) {
+private static String safelyConvertLegacyColors(String message) {
         if (message == null || message.isEmpty()) return message;
 
         StringBuilder result = new StringBuilder(message.length() + 16);
@@ -401,7 +401,10 @@ public class ColorUtil {
             if (current == '<') {
                 int endTag = message.indexOf('>', i);
                 if (endTag != -1) {
-                    result.append(message, i, endTag + 1);
+                    // Process content inside the tag for color codes
+                    String tagContent = message.substring(i + 1, endTag);
+                    String processedContent = safelyConvertLegacyColors(tagContent);
+                    result.append('<').append(processedContent).append('>');
                     i = endTag + 1;
                     continue;
                 }
