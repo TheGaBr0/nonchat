@@ -600,7 +600,7 @@ public class BaseChannel implements Channel {
      */
     private Component parseBeforeMessageWithHover(String beforeMessage, Player player) {
         String playerName = player.getName();
-        int nameIndex = beforeMessage.indexOf(playerName);
+        int nameIndex = findVisibleTextIndex(beforeMessage, playerName);
 
         if (nameIndex == -1) {
             // If player name not found, add hover to the entire beforeMessage
@@ -640,7 +640,7 @@ public class BaseChannel implements Channel {
      */
     private Component parseFullFormatWithHover(String fullFormat, Player player) {
         String playerName = player.getName();
-        int nameIndex = fullFormat.indexOf(playerName);
+        int nameIndex = findVisibleTextIndex(fullFormat, playerName);
 
         if (nameIndex == -1) {
             // If player name not found, add hover to the entire format
@@ -670,5 +670,39 @@ public class BaseChannel implements Channel {
         Component afterComponent = ColorUtil.parseConfigComponent(afterName);
 
         return beforeComponent.append(nameComponent).append(afterComponent);
+    }
+
+    /**
+     * Finds text only in visible content, skipping MiniMessage tags like
+     * <head:PlayerName> so formatting tags are not split in half.
+     *
+     * @param text The text to scan
+     * @param target The visible text to find
+     * @return Index of the first visible occurrence, or -1 if not found
+     */
+    private int findVisibleTextIndex(String text, String target) {
+        if (text == null || text.isEmpty() || target == null || target.isEmpty()) {
+            return -1;
+        }
+
+        boolean insideTag = false;
+
+        for (int i = 0; i <= text.length() - target.length(); i++) {
+            char current = text.charAt(i);
+
+            if (current == '<') {
+                insideTag = true;
+            }
+
+            if (!insideTag && text.regionMatches(i, target, 0, target.length())) {
+                return i;
+            }
+
+            if (current == '>') {
+                insideTag = false;
+            }
+        }
+
+        return -1;
     }
 }

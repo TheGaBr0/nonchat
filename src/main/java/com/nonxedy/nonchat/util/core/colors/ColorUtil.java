@@ -4,6 +4,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.UUID;
 import java.util.WeakHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -11,12 +12,17 @@ import java.util.regex.Pattern;
 import org.bukkit.Color;
 import org.bukkit.entity.Player;
 
+import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.minimessage.Context;
 import net.kyori.adventure.text.minimessage.MiniMessage;
+import net.kyori.adventure.text.minimessage.tag.Tag;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import net.kyori.adventure.text.object.ObjectContents;
+import net.kyori.adventure.text.object.PlayerHeadObjectContents;
 import net.md_5.bungee.api.ChatColor;
 
 /**
@@ -76,7 +82,9 @@ public class ColorUtil {
 
     private static final Pattern GRADIENT_PATTERN = Pattern.compile("(?i)<gradient:[^>]+>");
 
-    private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
+    private static final MiniMessage MINI_MESSAGE = MiniMessage.builder()
+            .editTags(builder -> builder.resolver(createHeadTagResolver()))
+            .build();
 
     private static final LRUCache<String, String> COLOR_CACHE = new LRUCache<>(1000);
 
@@ -464,5 +472,65 @@ private static String safelyConvertLegacyColors(String message) {
                 || HEX_PATTERN.matcher(message).find()
                 || LEGACY_COLOR_PATTERN.matcher(message).find()
                 || SECTION_COLOR_PATTERN.matcher(message).find();
+    }
+
+    private static TagResolver createHeadTagResolver() {
+        return TagResolver.resolver("head", (args, context) -> {
+            String target = args.popOr("The <head> tag requires a player name, UUID, or texture path").value();
+            boolean showHat = true;
+
+            if (args.hasNext()) {
+                showHat = parseBooleanArgument(args.pop().value(), context);
+            }
+
+            return Tag.inserting(createHeadComponent(target, showHat));
+        });
+    }
+
+    private static boolean parseBooleanArgument(String raw, Context context) {
+        if ("true".equalsIgnoreCase(raw)) {
+            return true;
+        }
+        if ("false".equalsIgnoreCase(raw)) {
+            return false;
+        }
+
+        throw context.newException("The <head> tag outer layer argument must be true or false", null);
+    }
+
+    private static Component createHeadComponent(String rawTarget, boolean showHat) {
+        String target = rawTarget == null ? "" : rawTarget.trim();
+        if (target.isEmpty()) {
+            return Component.empty();
+        }
+
+        PlayerHeadObjectContents.Builder headBuilder = ObjectContents.playerHead().hat(showHat);
+        UUID uuid = tryParseUuid(target);
+
+        if (uuid != null) {
+            headBuilder.id(uuid);
+        } else if (looksLikeTexturePath(target)) {
+            headBuilder.texture(parseTextureKey(target));
+        } else {
+            headBuilder.name(target);
+        }
+
+        return Component.object(headBuilder.build());
+    }
+
+    private static UUID tryParseUuid(String value) {
+        try {
+            return UUID.fromString(value);
+        } catch (IllegalArgumentException ignored) {
+            return null;
+        }
+    }
+
+    private static boolean looksLikeTexturePath(String value) {
+        return value.indexOf('/') >= 0 || value.indexOf(':') >= 0;
+    }
+
+    private static Key parseTextureKey(String value) {
+        return value.indexOf(':') >= 0 ? Key.key(value) : Key.key("minecraft", value);
     }
 }
