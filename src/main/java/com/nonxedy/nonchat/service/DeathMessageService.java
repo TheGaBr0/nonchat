@@ -3,6 +3,7 @@ package com.nonxedy.nonchat.service;
 import java.text.DecimalFormat;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Entity;
@@ -24,6 +25,8 @@ import com.nonxedy.nonchat.util.integration.external.IntegrationUtil;
 import com.nonxedy.nonchat.util.lang.EntityLocalizationUtil;
 
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.Style;
+import net.kyori.adventure.text.format.TextDecoration;
 
 /**
  * Main service coordinator for death message system
@@ -513,14 +516,43 @@ public class DeathMessageService {
         for (String placeholder : killerPlaceholders) {
             if (message.contains(placeholder)) {
                 // Split message by placeholder
-                String[] parts = message.split(java.util.regex.Pattern.quote(placeholder), -1);
+                String[] parts = message.split(Pattern.quote(placeholder), -1);
                 
                 // Build component by joining parts with killer component
                 Component result = Component.empty();
                 for (int i = 0; i < parts.length; i++) {
                     if (i > 0) {
                         // Add killer component between parts
-                        result = result.append(killerComponent);
+                        Component parsedLeftPart = ColorUtil.parseComponent(parts[i - 1] + "x");
+                        Style inheritedStyle = Style.empty();
+                        Component styleSource = parsedLeftPart;
+
+                        while (styleSource != null) {
+                            inheritedStyle = inheritedStyle.merge(styleSource.style());
+
+                            if (styleSource.children().isEmpty()) {
+                                break;
+                            }
+
+                            styleSource = styleSource.children().get(styleSource.children().size() - 1);
+                        }
+
+                        Component styledKillerComponent = killerComponent;
+                        if (inheritedStyle.color() != null) {
+                            styledKillerComponent = styledKillerComponent.colorIfAbsent(inheritedStyle.color());
+                        }
+
+                        for (TextDecoration decoration : TextDecoration.values()) {
+                            TextDecoration.State state = inheritedStyle.decoration(decoration);
+                            if (state != TextDecoration.State.NOT_SET) {
+                                styledKillerComponent = styledKillerComponent.decorationIfAbsent(
+                                    decoration,
+                                    state
+                                );
+                            }
+                        }
+
+                        result = result.append(styledKillerComponent);
                     }
                     // Parse and add the text part with color codes
                     if (!parts[i].isEmpty()) {
