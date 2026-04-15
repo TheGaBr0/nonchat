@@ -31,6 +31,7 @@ import com.nonxedy.nonchat.listener.DeathCoordinates;
 import com.nonxedy.nonchat.listener.DeathListener;
 import com.nonxedy.nonchat.listener.DiscordSRVListener;
 import com.nonxedy.nonchat.listener.JoinQuitListener;
+import com.nonxedy.nonchat.listener.MentionTabCompleteListener;
 import com.nonxedy.nonchat.listener.PlayerCleanupListener;
 import com.nonxedy.nonchat.placeholders.NonchatExpansion;
 import com.nonxedy.nonchat.service.ChatService;
@@ -72,6 +73,7 @@ public class Nonchat extends JavaPlugin {
     private IndirectDeathTracker indirectDeathTracker;
     private DamageTrackingListener damageTrackingListener;
     private PlayerCleanupListener playerCleanupListener;
+    private MentionTabCompleteListener mentionTabCompleteListener;
     private final Map<Player, List<TextDisplay>> bubbles = new HashMap<>();
 
     public static final ErrorTracker ERROR_TRACKER = ErrorTracker.contextAware();
@@ -270,6 +272,9 @@ public class Nonchat extends JavaPlugin {
 
             // Register join/quit listener
             Bukkit.getPluginManager().registerEvents(new JoinQuitListener(configService.getConfig(), chatManager.getChannelManager()), this);
+            this.mentionTabCompleteListener = new MentionTabCompleteListener();
+            Bukkit.getPluginManager().registerEvents(mentionTabCompleteListener, this);
+            mentionTabCompleteListener.refreshAllPlayers();
 
             // Log successful listener registration
             if (debugger != null) {
