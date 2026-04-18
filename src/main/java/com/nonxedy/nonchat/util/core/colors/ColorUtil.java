@@ -187,14 +187,6 @@ public class ColorUtil {
         return parseComponent(message);
     }
 
-    public static Component parseMiniMessageComponent(String message) {
-        return parseComponent(message);
-    }
-
-    public static Component parseMiniMessageComponent(String message, Player player) {
-        return parseComponent(message, player);
-    }
-
     /**
      * Safe formatting method for chat templates.
      *

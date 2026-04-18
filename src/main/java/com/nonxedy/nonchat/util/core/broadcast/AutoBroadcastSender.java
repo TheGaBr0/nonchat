@@ -110,7 +110,7 @@ public class AutoBroadcastSender {
         // Check if message contains MiniMessage tags
         if (ColorUtil.containsMiniMessageTags(message)) {
             // Parse with MiniMessage for full tag support (including click events)
-            broadcastMessage = ColorUtil.parseMiniMessageComponent(message);
+            broadcastMessage = ColorUtil.parseComponent(message);
         } else {
             // Use LinkDetector to make links clickable for legacy messages
             broadcastMessage = LinkDetector.makeLinksClickable(message);
