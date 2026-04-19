@@ -247,23 +247,6 @@ public class ColorUtil {
         return parseComponent(message);
     }
 
-    /**
-     * For legacy-only string paths.
-     */
-    public static String processMessageWithPermission(String message, Player player) {
-        if (player != null && !player.hasPermission("nonchat.color")) {
-            return stripAllColors(message);
-        }
-        return parseColor(message);
-    }
-
-    /**
-     * Preferred permission-aware component path.
-     */
-    public static Component processComponentWithPermission(String message, Player player) {
-        return parseComponent(message, player);
-    }
-
     public static boolean containsMiniMessageTags(String message) {
         if (message == null || message.isEmpty()) return false;
         return MINIMESSAGE_TAG_PATTERN.matcher(message).find();
