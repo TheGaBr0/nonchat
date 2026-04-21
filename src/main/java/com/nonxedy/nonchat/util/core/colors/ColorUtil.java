@@ -310,31 +310,32 @@ public class ColorUtil {
         }
     }
 
-    /**
-     * Converts hex string into Bukkit Color.
-     */
-    public static Color parseHexColor(String hexColor) {
-        if (hexColor == null || hexColor.isEmpty()) return Color.BLACK;
-
-        try {
-            String hex = hexColor.startsWith("#") ? hexColor.substring(1) : hexColor;
-
-            if (hex.length() == 3) {
-                hex = "" + hex.charAt(0) + hex.charAt(0)
-                        + hex.charAt(1) + hex.charAt(1)
-                        + hex.charAt(2) + hex.charAt(2);
-            }
-
-            if (hex.length() != 6) return Color.BLACK;
-
-            int r = Integer.parseInt(hex.substring(0, 2), 16);
-            int g = Integer.parseInt(hex.substring(2, 4), 16);
-            int b = Integer.parseInt(hex.substring(4, 6), 16);
-
-            return Color.fromRGB(r, g, b);
-        } catch (IllegalArgumentException e) {
+    public static Color parseHexColor(String hex) {
+        if (hex == null || hex.isEmpty()) {
             return Color.BLACK;
         }
+    
+        // Support for #RRGGBB and #RRGGBBAA formats
+        if (hex.startsWith("#")) {
+            hex = hex.substring(1);
+        }
+    
+        int r, g, b, a = 255; // Full opacity by default
+    
+        if (hex.length() == 6) {
+            r = Integer.parseInt(hex.substring(0, 2), 16);
+            g = Integer.parseInt(hex.substring(2, 4), 16);
+            b = Integer.parseInt(hex.substring(4, 6), 16);
+        } else if (hex.length() == 8) {
+            r = Integer.parseInt(hex.substring(0, 2), 16);
+            g = Integer.parseInt(hex.substring(2, 4), 16);
+            b = Integer.parseInt(hex.substring(4, 6), 16);
+            a = Integer.parseInt(hex.substring(6, 8), 16);
+        } else {
+            return Color.BLACK;
+        }
+        
+        return Color.fromARGB(a, r, g, b);
     }
 
     /**
