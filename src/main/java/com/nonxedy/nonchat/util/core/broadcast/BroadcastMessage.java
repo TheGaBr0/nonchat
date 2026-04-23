@@ -15,4 +15,5 @@ public class BroadcastMessage {
     private boolean enabled;
     private String message;
     private int interval;
+    private boolean displayInConsole;
 }

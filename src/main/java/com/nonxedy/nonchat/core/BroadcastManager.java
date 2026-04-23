@@ -57,14 +57,15 @@ public class BroadcastManager {
 
         for (BroadcastMessage message : messageSequence) {
             BukkitTask task = Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, () -> {
-                broadcast(Bukkit.getConsoleSender(), message.getMessage());
+                broadcast(message);  // pass BroadcastMessage object directly
             }, delay, totalPeriod);
             activeTasks.add(task);
             delay += message.getInterval() * 20L;
         }
     }
 
-    public void broadcast(CommandSender sender, String message) {
+    public void broadcast(BroadcastMessage broadcastMessage) {
+        String message = broadcastMessage.getMessage();
         try {
             for (Player player : Bukkit.getOnlinePlayers()) {
                 // Process PAPI placeholders for each player individually
@@ -83,8 +84,10 @@ public class BroadcastManager {
             }
 
             // Console log using the raw message (no player context for PAPI)
-            String consoleMessage = ColorUtil.stripAllColors(message);
-            plugin.getLogger().info(consoleMessage);
+            if (broadcastMessage.isDisplayInConsole()) {
+                String consoleMessage = ColorUtil.stripAllColors(message);
+                plugin.getLogger().info(consoleMessage);
+            }
 
         } catch (NoSuchMethodError e) {
             // Fall back to traditional Bukkit sendMessage if Adventure API is not available

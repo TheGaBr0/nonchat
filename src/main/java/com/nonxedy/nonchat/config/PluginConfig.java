@@ -200,6 +200,7 @@ public class PluginConfig {
         config.set("broadcast.example.enabled", true);
         config.set("broadcast.example.message", "This message will be sent every 60 seconds");
         config.set("broadcast.example.interval", 60);
+        config.set("broadcast.example.display-in-console", true);
         
         // Anti-advertisement settings
         config.set("anti-ad.enabled", true);
@@ -748,7 +749,8 @@ public class PluginConfig {
                     messages.put(key, createBroadcastMessage(
                         messageSection.getBoolean("enabled", true),
                         messageSection.getString("message", "Default message"),
-                        messageSection.getInt("interval", 60)
+                        messageSection.getInt("interval", 60),
+                        messageSection.getBoolean("display-in-console", true)
                     ));
                 }
             }
@@ -863,8 +865,8 @@ public class PluginConfig {
      * @param interval The broadcast interval
      * @return New BroadcastMessage instance
      */
-    public BroadcastMessage createBroadcastMessage(boolean enabled, String message, int interval) {
-        return new BroadcastMessage(enabled, message, interval);
+    public BroadcastMessage createBroadcastMessage(boolean enabled, String message, int interval, boolean displayInConsole) {
+        return new BroadcastMessage(enabled, message, interval, displayInConsole);
     }
 
     /**
