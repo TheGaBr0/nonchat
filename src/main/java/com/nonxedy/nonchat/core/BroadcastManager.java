@@ -73,7 +73,7 @@ public class BroadcastManager {
                 Component formatted;
                 // Check if message contains MiniMessage tags
                 if (ColorUtil.containsMiniMessageTags(parsedMessage)) {
-                    formatted = ColorUtil.parseMiniMessageComponent(parsedMessage);
+                    formatted = ColorUtil.parseComponent(parsedMessage);
                 } else {
                     // Use LinkDetector to make links clickable for legacy messages
                     formatted = LinkDetector.makeLinksClickable(parsedMessage);

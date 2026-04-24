@@ -1,20 +1,17 @@
 package com.nonxedy.nonchat.util.core.colors;
 
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.UUID;
-import java.util.WeakHashMap;
+import java.util.*;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.bukkit.Color;
 import org.bukkit.entity.Player;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.minimessage.Context;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.Tag;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
@@ -25,291 +22,482 @@ import net.kyori.adventure.text.object.ObjectContents;
 import net.kyori.adventure.text.object.PlayerHeadObjectContents;
 import net.md_5.bungee.api.ChatColor;
 
+// ─────────────────────────────────────────────────────────────────────────────
+// ConcurrentLRUCache
+// ─────────────────────────────────────────────────────────────────────────────
+
 /**
- * Simple LRU cache implementation.
+ * Thread-safe LRU cache backed by a {@link LinkedHashMap} with
+ * a {@link ReentrantReadWriteLock}. Allows concurrent reads while
+ * write operations (put / clear) are exclusive.
+ *
+ * <p>Also tracks hit / miss counts for diagnostics via {@link #stats()}.
  */
-class LRUCache<K, V> {
+class ConcurrentLRUCache<K, V> {
 
+    private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
     private final Map<K, V> cache;
+    private final int maxSize;
 
-    public LRUCache(int maxSize) {
-        this.cache = Collections.synchronizedMap(
-            new LinkedHashMap<K, V>(maxSize, 0.75f, true) {
-                @Override
-                protected boolean removeEldestEntry(Entry<K, V> eldest) {
-                    return size() > maxSize;
-                }
+    private long hits   = 0;
+    private long misses = 0;
+
+    public ConcurrentLRUCache(int maxSize) {
+        this.maxSize = maxSize;
+        this.cache   = new LinkedHashMap<>(maxSize, 0.75f, true) {
+            @Override
+            protected boolean removeEldestEntry(Map.Entry<K, V> eldest) {
+                return size() > ConcurrentLRUCache.this.maxSize;
             }
-        );
+        };
     }
 
-    public V get(K key) {
-        return cache.get(key);
+    public @Nullable V get(@NotNull K key) {
+        lock.readLock().lock();
+        try {
+            V value = cache.get(key);
+            if (value != null) hits++; else misses++;
+            return value;
+        } finally {
+            lock.readLock().unlock();
+        }
     }
 
-    public void put(K key, V value) {
-        cache.put(key, value);
+    public void put(@NotNull K key, @NotNull V value) {
+        lock.writeLock().lock();
+        try {
+            cache.put(key, value);
+        } finally {
+            lock.writeLock().unlock();
+        }
+    }
+
+    public void remove(@NotNull K key) {
+        lock.writeLock().lock();
+        try {
+            cache.remove(key);
+        } finally {
+            lock.writeLock().unlock();
+        }
+    }
+
+    public void clear() {
+        lock.writeLock().lock();
+        try {
+            cache.clear();
+        } finally {
+            lock.writeLock().unlock();
+        }
+    }
+
+    public int size() {
+        lock.readLock().lock();
+        try { return cache.size(); }
+        finally { lock.readLock().unlock(); }
+    }
+
+    public CacheStats.Entry stats() {
+        return new CacheStats.Entry(hits, misses, size());
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// ColorUtil
+// ─────────────────────────────────────────────────────────────────────────────
+
 /**
- * Utility for parsing legacy colors, hex colors and full MiniMessage into Adventure Components.
+ * Central utility for parsing and converting all Minecraft color / formatting
+ * formats into Adventure {@link Component} objects.
+ *
+ * <h3>Supported input formats:</h3>
+ * <ul>
+ *   <li>Legacy ampersand — {@code &a}, {@code &l}, etc.</li>
+ *   <li>Legacy section   — {@code §a}, {@code §l}, etc.</li>
+ *   <li>Ampersand HEX   — {@code &#RRGGBB}</li>
+ *   <li>BungeeCord HEX  — {@code &x&R&G&B&R&G&B} and {@code §x§R§G§B§R§G§B}</li>
+ *   <li>MiniMessage      — {@code <red>}, {@code <#FFFFFF>}, {@code <gradient:...>}, etc.</li>
+ * </ul>
+ *
+ * <h3>Caching:</h3>
+ * <p>Two separate {@link ConcurrentLRUCache} instances are used:
+ * <ul>
+ *   <li>{@code NORMALIZE_CACHE}  — normalized MiniMessage strings  (500 entries)</li>
+ *   <li>{@code COMPONENT_CACHE}  — parsed {@link Component} objects (1000 entries)</li>
+ * </ul>
+ * Use {@link #parseComponentCached(String)} for static config strings and
+ * {@link #parseComponent(String)} for dynamic messages with placeholders.
  */
-public class ColorUtil {
+public final class ColorUtil {
 
-    private static final Pattern HEX_PATTERN = Pattern.compile("&#([A-Fa-f0-9]{6})");
+    private ColorUtil() {}
 
-    private static final Pattern LEGACY_COLOR_PATTERN = Pattern.compile("(?i)&[0-9A-FK-OR]");
+    // ── Patterns ────────────────────────────────────────────────────────────────
 
-    private static final Pattern SECTION_COLOR_PATTERN = Pattern.compile("(?i)§[0-9A-FK-OR]");
+    static final Pattern HEX_PATTERN =
+            Pattern.compile("&#([A-Fa-f0-9]{6})");
 
-    // &x&R&G&B&R&G&B  (Essentials / BungeeCord ampersand hex format)
-    private static final Pattern AMPERSAND_HEX_PATTERN = Pattern.compile(
-        "(?i)&x&([0-9a-fA-F])&([0-9a-fA-F])&([0-9a-fA-F])&([0-9a-fA-F])&([0-9a-fA-F])&([0-9a-fA-F])"
-    );
+    static final Pattern LEGACY_COLOR_PATTERN =
+            Pattern.compile("(?i)&[0-9A-FK-OR]");
 
-    // §x§R§G§B§R§G§B  (BungeeCord section hex format, produced by parseColor)
-    private static final Pattern BUNGEE_HEX_PATTERN = Pattern.compile(
-        "§x§([0-9a-fA-F])§([0-9a-fA-F])§([0-9a-fA-F])§([0-9a-fA-F])§([0-9a-fA-F])§([0-9a-fA-F])"
-    );
+    static final Pattern SECTION_COLOR_PATTERN =
+            Pattern.compile("(?i)§[0-9A-FK-OR]");
 
-    /**
-     * Detects tags like:
-     * <red>, </red>, <click:run_command:/seed>, <hover:show_text:'text'>, <#FFFFFF>, etc.
-     */
-    private static final Pattern MINIMESSAGE_TAG_PATTERN =
-            Pattern.compile("</?[a-zA-Z][a-zA-Z0-9_:-]*(?::[^<>\\r\\n]*)?>|<#[0-9a-fA-F]{6}>");
+    static final Pattern AMPERSAND_HEX_PATTERN = Pattern.compile(
+            "(?i)&x&([0-9a-fA-F])&([0-9a-fA-F])&([0-9a-fA-F])&([0-9a-fA-F])&([0-9a-fA-F])&([0-9a-fA-F])");
 
-    private static final Pattern GRADIENT_PATTERN = Pattern.compile("(?i)<gradient:[^>]+>");
+    static final Pattern BUNGEE_HEX_PATTERN = Pattern.compile(
+            "§x§([0-9a-fA-F])§([0-9a-fA-F])§([0-9a-fA-F])§([0-9a-fA-F])§([0-9a-fA-F])§([0-9a-fA-F])");
+
+    static final Pattern MINIMESSAGE_TAG_PATTERN =
+            Pattern.compile("</?[a-zA-Z][a-zA-Z0-9_:-]*(?::[^<>\\r\\n]*)? >|<#[0-9a-fA-F]{6}>");
+
+    private static final Pattern GRADIENT_PATTERN =
+            Pattern.compile("(?i)<gradient:[^>]+>");
+
+    // ── MiniMessage instance ─────────────────────────────────────────────────────
 
     private static final MiniMessage MINI_MESSAGE = MiniMessage.builder()
-            .editTags(builder -> builder.resolver(createHeadTagResolver()))
+            .editTags(b -> b.resolver(createHeadTagResolver()))
             .build();
 
-    private static final LRUCache<String, String> COLOR_CACHE = new LRUCache<>(1000);
+    // ── Caches ───────────────────────────────────────────────────────────────────
 
-    private static final Map<String, Component> COMPONENT_CACHE =
-            Collections.synchronizedMap(new WeakHashMap<>());
+    /** Caches raw-string → normalised-MiniMessage-string conversions. */
+    private static final ConcurrentLRUCache<String, String>    NORMALIZE_CACHE  = new ConcurrentLRUCache<>(500);
+
+    /** Caches raw-string → parsed Component. Only for static (placeholder-free) strings. */
+    private static final ConcurrentLRUCache<String, Component> COMPONENT_CACHE = new ConcurrentLRUCache<>(1000);
+
+    /** Legacy parseColor string cache (for old BungeeCord / string paths). */
+    private static final ConcurrentLRUCache<String, String>    COLOR_CACHE      = new ConcurrentLRUCache<>(1000);
+
+    // ════════════════════════════════════════════════════════════════════════════
+    // PUBLIC API — Parsing
+    // ════════════════════════════════════════════════════════════════════════════
 
     /**
-     * Converts legacy & codes and &#RRGGBB into section-coded string.
-     * This is only for old string-based paths.
+     * Parses all color formats (Legacy, BungeeCord HEX, Ampersand HEX, MiniMessage)
+     * into an Adventure {@link Component}.
      *
-     * Format: &#RRGGBB becomes §x§R§G§B§R§G§B (BungeeCord hex format)
+     * @param message the raw message string
+     * @return parsed component, never {@code null}
      */
-    public static String parseColor(String message) {
-        if (message == null) return "";
-
-        String cached = COLOR_CACHE.get(message);
-        if (cached != null) return cached;
-
-        //  Convert &x&R&G&B&R&G&B -> §x§R§G§B§R§G§B
-        Matcher ampMatcher = AMPERSAND_HEX_PATTERN.matcher(message);
-        StringBuffer ampBuffer = new StringBuffer(message.length());
-        while (ampMatcher.find()) {
-            String bungee = "§x"
-                    + "§" + ampMatcher.group(1)
-                    + "§" + ampMatcher.group(2)
-                    + "§" + ampMatcher.group(3)
-                    + "§" + ampMatcher.group(4)
-                    + "§" + ampMatcher.group(5)
-                    + "§" + ampMatcher.group(6);
-            ampMatcher.appendReplacement(ampBuffer, Matcher.quoteReplacement(bungee));
-        }
-        ampMatcher.appendTail(ampBuffer);
-        String preProcessed = ampBuffer.toString();
-
-        //Translate standard &x codes
-        String withTranslated = ChatColor.translateAlternateColorCodes('&', preProcessed);
-
-        // Convert &#RRGGBB -> §x§R§G§B§R§G§B
-        Matcher hexMatcher = HEX_PATTERN.matcher(withTranslated);
-        StringBuilder buffer = new StringBuilder(withTranslated.length() + 32);
-        while (hexMatcher.find()) {
-            String hex = hexMatcher.group(1);
-            String bungeeHex = "§x"
-                    + "§" + hex.charAt(0)
-                    + "§" + hex.charAt(1)
-                    + "§" + hex.charAt(2)
-                    + "§" + hex.charAt(3)
-                    + "§" + hex.charAt(4)
-                    + "§" + hex.charAt(5);
-            hexMatcher.appendReplacement(buffer, Matcher.quoteReplacement(bungeeHex));
-        }
-        hexMatcher.appendTail(buffer);
-
-        String result = buffer.toString();
-        COLOR_CACHE.put(message, result);
-        return result;
-    }
-
-    public static Component parseComponentCached(String message) {
-        if (message == null || message.isEmpty()) return Component.empty();
-        return COMPONENT_CACHE.computeIfAbsent(message, ColorUtil::parseComponent);
-    }
-
-    /**
-     * Main parser for user/chat text.
-     * Supports:
-     * - &a, &l, etc.
-     * - §a, §l, etc.
-     * - &#RRGGBB
-     * - &x&R&G&B&R&G&B
-     * - <#RRGGBB>
-     * - full MiniMessage tags like <click>, <hover>, <gradient>, etc.
-     */
-    public static Component parseComponent(String message) {
-        if (message == null || message.isEmpty()) return Component.text("");
+    public static @NotNull Component parseComponent(@NotNull String message) {
+        if (message.isEmpty()) return Component.empty();
 
         try {
             String normalized = normalizeToMiniMessage(message);
-            if (containsMiniMessageTags(normalized) || containsLegacyCodes(message)) {
-                return MINI_MESSAGE.deserialize(normalized);
-            }
-            return Component.text(message);
+            return MINI_MESSAGE.deserialize(normalized);
         } catch (Exception e) {
-            try {
-                String legacyMessage = parseColor(message);
-                return LegacyComponentSerializer.legacySection().deserialize(legacyMessage);
-            } catch (Exception ignored) {
-                return Component.text(stripAllColors(message));
-            }
+            return fallbackParse(message);
         }
     }
 
     /**
-     * If player has no color permission, strip all formatting and interactive tags.
+     * Parses the message with additional {@link TagResolver}s (e.g. PlaceholderAPI).
+     *
+     * @param message   the raw message string
+     * @param resolvers extra resolvers to apply during parsing
+     * @return parsed component, never {@code null}
      */
-    public static Component parseComponent(String message, Player player) {
+    public static @NotNull Component parseComponent(@NotNull String message, TagResolver... resolvers) {
+        if (message.isEmpty()) return Component.empty();
+
+        try {
+            String   normalized = normalizeToMiniMessage(message);
+            TagResolver combined = TagResolver.resolver(resolvers);
+            return MINI_MESSAGE.deserialize(normalized, combined);
+        } catch (Exception e) {
+            return fallbackParse(message);
+        }
+    }
+
+    /**
+     * Parses the message respecting the player's {@code nonchat.color} permission.
+     * If the player lacks the permission, all formatting is stripped.
+     *
+     * @param message the raw message string
+     * @param player  the sender, may be {@code null} (permission check skipped)
+     * @return parsed component, never {@code null}
+     */
+    public static @NotNull Component parseComponent(@NotNull String message, @Nullable Player player) {
         if (player != null && !player.hasPermission("nonchat.color")) {
-            return Component.text(stripAllColors(message));
+            return Component.text(stripFormatting(message));
         }
         return parseComponent(message);
     }
 
-    public static Component parseMiniMessageComponent(String message) {
-        return parseComponent(message);
-    }
-
-    public static Component parseMiniMessageComponent(String message, Player player) {
-        return parseComponent(message, player);
+    /**
+     * Parses the message with a player permission check and extra resolvers.
+     *
+     * @param message   the raw message string
+     * @param player    the sender (nullable)
+     * @param resolvers extra resolvers
+     * @return parsed component, never {@code null}
+     */
+    public static @NotNull Component parseComponent(
+            @NotNull String message,
+            @Nullable Player player,
+            TagResolver... resolvers) {
+        if (player != null && !player.hasPermission("nonchat.color")) {
+            return Component.text(stripFormatting(message));
+        }
+        return parseComponent(message, resolvers);
     }
 
     /**
-     * Safe formatting method for chat templates.
+     * Cached variant of {@link #parseComponent(String)}.
      *
-     * format example:
-     * "<gray>[<gold>%player%</gold>]</gray> %message%"
+     * <p><b>Only use this for static strings without runtime placeholders.</b>
+     * The result is stored in a {@link ConcurrentLRUCache} (1000 entries).
      *
-     * player name is inserted as plain/unparsed text
-     * message is inserted as parsed MiniMessage text
+     * @param message the raw message string
+     * @return parsed component (possibly from cache), never {@code null}
      */
-    public static Component parseChatFormat(String format, Player sender, String message) {
-        String playerName = sender != null ? sender.getName() : "";
-        boolean allowFormatting = sender == null || sender.hasPermission("nonchat.color");
-        return parseChatFormat(format, playerName, message, allowFormatting);
+    public static @NotNull Component parseComponentCached(@NotNull String message) {
+        return parseComponentCached(message, false);
     }
 
-    public static Component parseChatFormat(String format, String playerName, String message) {
+    /**
+     * Cached variant with explicit placeholder control.
+     *
+     * <p>When {@code hasPlaceholders} is {@code true} the cache is bypassed so that
+     * placeholder values are always resolved fresh. Use {@code false} (default) for
+     * static config strings such as prefix or format lines.
+     *
+     * @param message         the raw message string
+     * @param hasPlaceholders if {@code true}, skip the cache entirely
+     * @return parsed component, never {@code null}
+     */
+    public static @NotNull Component parseComponentCached(@NotNull String message, boolean hasPlaceholders) {
+        if (message.isEmpty()) return Component.empty();
+        if (hasPlaceholders)   return parseComponent(message);
+
+        Component cached = COMPONENT_CACHE.get(message);
+        if (cached != null) return cached;
+
+        Component result = parseComponent(message);
+        COMPONENT_CACHE.put(message, result);
+        return result;
+    }
+
+    // ════════════════════════════════════════════════════════════════════════════
+    // PUBLIC API — Chat format
+    // ════════════════════════════════════════════════════════════════════════════
+
+    /**
+     * Parses a chat format template, substituting {@code %player%} and
+     * {@code %message%} placeholders.
+     *
+     * <p>Formatting permission is derived from the sender's {@code nonchat.color}
+     * permission node.
+     *
+     * @param format  the format string (e.g. {@code "<gray>[<gold>%player%</gold>]</gray> %message%"})
+     * @param sender  the sending player
+     * @param message the chat message
+     * @return parsed component, never {@code null}
+     */
+    public static @NotNull Component parseChatFormat(
+            @NotNull String format,
+            @NotNull Player sender,
+            @NotNull String message) {
+        return parseChatFormat(format, sender.getName(), message,
+                sender.hasPermission("nonchat.color"));
+    }
+
+    public static @NotNull Component parseChatFormat(
+            @NotNull String format,
+            @NotNull String playerName,
+            @NotNull String message) {
         return parseChatFormat(format, playerName, message, true);
     }
 
-    public static Component parseChatFormat(String format, String playerName, String message, boolean allowFormatting) {
-        if (format == null || format.isEmpty()) {
-            return allowFormatting
-                    ? parseComponent(message)
-                    : Component.text(stripAllColors(message));
-        }
+    public static @NotNull Component parseChatFormat(
+            @NotNull String format,
+            @NotNull String playerName,
+            @NotNull String message,
+            boolean allowFormatting,
+            TagResolver... extra) {
 
-        String safePlayerName = playerName == null ? "" : playerName;
-        String safeMessage    = message    == null ? "" : message;
+        if (format.isEmpty()) {
+            return allowFormatting ? parseComponent(message) : Component.text(stripFormatting(message));
+        }
 
         try {
             String normalizedFormat = normalizeToMiniMessage(format)
                     .replace("%player%", "<player>")
                     .replace("%message%", "<message>");
 
-            TagResolver resolver = allowFormatting
-                    ? TagResolver.resolver(
-                            Placeholder.unparsed("player", safePlayerName),
-                            Placeholder.parsed("message", normalizeToMiniMessage(safeMessage))
-                      )
-                    : TagResolver.resolver(
-                            Placeholder.unparsed("player", safePlayerName),
-                            Placeholder.unparsed("message", stripAllColors(safeMessage))
-                      );
+            TagResolver playerResolver  = Placeholder.unparsed("player", playerName);
+            TagResolver messageResolver = allowFormatting
+                    ? Placeholder.parsed("message", normalizeToMiniMessage(message))
+                    : Placeholder.unparsed("message", stripFormatting(message));
 
-            return MINI_MESSAGE.deserialize(normalizedFormat, resolver);
+            TagResolver combined = extra.length > 0
+                    ? TagResolver.resolver(playerResolver, messageResolver, TagResolver.resolver(extra))
+                    : TagResolver.resolver(playerResolver, messageResolver);
+
+            return MINI_MESSAGE.deserialize(normalizedFormat, combined);
+
         } catch (Exception e) {
             String fallback = format
-                    .replace("%player%", safePlayerName)
-                    .replace("%message%", allowFormatting ? safeMessage : stripAllColors(safeMessage));
+                    .replace("%player%", playerName)
+                    .replace("%message%", allowFormatting ? message : stripFormatting(message));
             return parseComponent(fallback);
         }
     }
 
-    /**
-     * For config strings or any server-defined format lines.
-     */
-    public static Component parseConfigComponent(String message) {
-        return parseComponent(message);
-    }
+    // ════════════════════════════════════════════════════════════════════════════
+    // PUBLIC API — Stripping
+    // ════════════════════════════════════════════════════════════════════════════
 
     /**
-     * For legacy-only string paths.
+     * Removes all color and formatting codes, returning plain visible text.
+     *
+     * @param message the raw message string
+     * @return plain-text string without any formatting
      */
-    public static String processMessageWithPermission(String message, Player player) {
-        if (player != null && !player.hasPermission("nonchat.color")) {
-            return stripAllColors(message);
-        }
-        return parseColor(message);
-    }
-
-    /**
-     * Preferred permission-aware component path.
-     */
-    public static Component processComponentWithPermission(String message, Player player) {
-        return parseComponent(message, player);
-    }
-
-    public static boolean containsMiniMessageTags(String message) {
-        if (message == null || message.isEmpty()) return false;
-        return MINIMESSAGE_TAG_PATTERN.matcher(message).find();
-    }
-
-    public static boolean containsGradient(String message) {
-        if (message == null || message.isEmpty()) return false;
-        return GRADIENT_PATTERN.matcher(message).find();
-    }
-
-    public static boolean hasColorCodes(String message) {
-        if (message == null || message.isEmpty()) return false;
-        return AMPERSAND_HEX_PATTERN.matcher(message).find()
-                || HEX_PATTERN.matcher(message).find()
-                || LEGACY_COLOR_PATTERN.matcher(message).find()
-                || SECTION_COLOR_PATTERN.matcher(message).find()
-                || MINIMESSAGE_TAG_PATTERN.matcher(message).find();
-    }
-
-    /**
-     * Removes all formatting and returns visible plain text only.
-     */
-    public static String stripAllColors(String message) {
-        if (message == null || message.isEmpty()) return "";
-
+    public static @NotNull String stripFormatting(@NotNull String message) {
+        if (message.isEmpty()) return message;
         try {
             return PlainTextComponentSerializer.plainText().serialize(parseComponent(message));
         } catch (Exception e) {
-            String result = message;
-            result = AMPERSAND_HEX_PATTERN.matcher(result).replaceAll("");
-            result = HEX_PATTERN.matcher(result).replaceAll("");
-            result = LEGACY_COLOR_PATTERN.matcher(result).replaceAll("");
-            result = SECTION_COLOR_PATTERN.matcher(result).replaceAll("");
-            result = result.replaceAll("<[^>]+>", "");
-            return result;
+            return stripFormattingFallback(message);
         }
     }
 
+    /**
+     * Removes only the specified formatting formats from the string,
+     * leaving other formats intact.
+     *
+     * <p>Example — remove only legacy codes, keep MiniMessage tags:
+     * <pre>{@code
+     * ColorUtil.stripFormatting(msg, ColorFormat.LEGACY, ColorFormat.AMPERSAND_HEX);
+     * }</pre>
+     *
+     * @param message the raw message string
+     * @param formats the formats to strip (empty = strip all)
+     * @return string with specified formats removed
+     */
+    public static @NotNull String stripFormatting(@NotNull String message, ColorFormat... formats) {
+        if (message.isEmpty() || formats.length == 0) return stripFormatting(message);
+        String result = message;
+        for (ColorFormat fmt : formats) result = fmt.strip(result);
+        return result;
+    }
+
+    /**
+     * @deprecated Use {@link #stripFormatting(String)} instead.
+     */
+    @Deprecated
+    public static @NotNull String stripAllColors(@NotNull String message) {
+        return stripFormatting(message);
+    }
+
+    // ════════════════════════════════════════════════════════════════════════════
+    // PUBLIC API — Detection
+    // ════════════════════════════════════════════════════════════════════════════
+
+    /**
+     * Detects the primary color format present in the message.
+     *
+     * @param message the string to inspect
+     * @return detected {@link ColorFormat}, or {@link ColorFormat#NONE}
+     */
+    public static ColorFormat detectFormat(@NotNull String message) {
+        return message.isEmpty() ? ColorFormat.NONE : ColorFormat.detect(message);
+    }
+
+    /**
+     * Returns all color formats present in the message.
+     *
+     * @param message the string to inspect
+     * @return set of detected formats, or {@code {NONE}} if none found
+     */
+    public static Set<ColorFormat> detectAllFormats(@NotNull String message) {
+        return message.isEmpty()
+                ? EnumSet.of(ColorFormat.NONE)
+                : ColorFormat.detectAll(message);
+    }
+
+    public static boolean hasColorCodes(@NotNull String message) {
+        return !message.isEmpty() && detectFormat(message) != ColorFormat.NONE;
+    }
+
+    public static boolean containsMiniMessageTags(@NotNull String message) {
+        return !message.isEmpty() && MINIMESSAGE_TAG_PATTERN.matcher(message).find();
+    }
+
+    public static boolean containsGradient(@NotNull String message) {
+        return !message.isEmpty() && GRADIENT_PATTERN.matcher(message).find();
+    }
+
+    // ════════════════════════════════════════════════════════════════════════════
+    // PUBLIC API — Fluent builder
+    // ════════════════════════════════════════════════════════════════════════════
+
+    /**
+     * Returns a fluent {@link MessageParser} for the given message.
+     *
+     * @param message the raw message string
+     * @return a new {@link MessageParser} instance
+     */
+    public static MessageParser parser(@NotNull String message) {
+        return new MessageParser(message);
+    }
+
+<<<<<<< colorutil-rework
+    // ════════════════════════════════════════════════════════════════════════════
+    // PUBLIC API — Bukkit Color
+    // ════════════════════════════════════════════════════════════════════════════
+
+    /**
+     * Parses a hex color string into a Bukkit {@link Color}.
+     *
+     * Supported formats (with or without leading {@code #}):
+     * <ul>
+     *   <li>{@code #RGB}       -> expanded to RRGGBB, full opacity</li>
+     *   <li>{@code #RRGGBB}   -> full opacity</li>
+     *   <li>{@code #RRGGBBAA} -> RRGGBB + alpha channel (00 = transparent, FF = opaque)</li>
+     * </ul>
+     *
+     * @param hexColor hex string with or without leading {@code #}
+     * @return {@link Color}, or {@link Color#BLACK} on parse failure
+     */
+    public static @NotNull Color parseHexColor(@NotNull String hexColor) {
+        if (hexColor == null || hexColor.isEmpty()) return Color.BLACK;
+        try {
+            String hex = hexColor.startsWith("#") ? hexColor.substring(1) : hexColor;
+
+            // #RGB -> #RRGGBB
+            if (hex.length() == 3) {
+                hex = "" + hex.charAt(0) + hex.charAt(0)
+                        + hex.charAt(1) + hex.charAt(1)
+                        + hex.charAt(2) + hex.charAt(2);
+            }
+
+            int r, g, b, a;
+
+            if (hex.length() == 6) {
+                // #RRGGBB — full opacity
+                r = Integer.parseInt(hex.substring(0, 2), 16);
+                g = Integer.parseInt(hex.substring(2, 4), 16);
+                b = Integer.parseInt(hex.substring(4, 6), 16);
+                return Color.fromRGB(r, g, b);
+
+            } else if (hex.length() == 8) {
+                // #RRGGBBAA — RGB + alpha (config/CSS convention used in nonchat)
+                r = Integer.parseInt(hex.substring(0, 2), 16);
+                g = Integer.parseInt(hex.substring(2, 4), 16);
+                b = Integer.parseInt(hex.substring(4, 6), 16);
+                a = Integer.parseInt(hex.substring(6, 8), 16);
+                return Color.fromARGB(a, r, g, b);
+
+            } else {
+                return Color.BLACK;
+            }
+        } catch (IllegalArgumentException e) {
+=======
     public static Color parseHexColor(String hex) {
         if (hex == null || hex.isEmpty()) {
             return Color.BLACK;
@@ -332,72 +520,166 @@ public class ColorUtil {
             b = Integer.parseInt(hex.substring(4, 6), 16);
             a = Integer.parseInt(hex.substring(6, 8), 16);
         } else {
+>>>>>>> dev
             return Color.BLACK;
         }
         
         return Color.fromARGB(a, r, g, b);
     }
 
+    // ════════════════════════════════════════════════════════════════════════════
+    // PUBLIC API — Legacy string path
+    // ════════════════════════════════════════════════════════════════════════════
+
     /**
-     * Converts:
-     * &x&R&G&B&R&G&B  -> <reset><#RRGGBB>
-     * §x§R§G§B§R§G§B  -> <reset><#RRGGBB>
-     * &#RRGGBB        -> <reset><#RRGGBB>
-     * &a / §a         -> <reset><green>, etc.
-     * while not touching already-existing MiniMessage tags.
+     * Converts legacy {@code &} and {@code &#RRGGBB} codes into section-coded
+     * BungeeCord strings. Cached via an LRU cache.
+     *
+     * <p>Prefer {@link #parseComponent(String)} unless you need a raw string.
+     *
+     * @param message the raw message
+     * @return section-coded string
      */
-    private static String normalizeToMiniMessage(String message) {
-        if (message == null || message.isEmpty()) return "";
+    public static @NotNull String parseColor(@NotNull String message) {
+        if (message.isEmpty()) return message;
+
+        String cached = COLOR_CACHE.get(message);
+        if (cached != null) return cached;
+
+        // &x&R&G&B&R&G&B → §x§R§G§B§R§G§B
+        Matcher ampMatcher = AMPERSAND_HEX_PATTERN.matcher(message);
+        StringBuffer ampBuffer = new StringBuffer(message.length());
+        while (ampMatcher.find()) {
+            String bungee = "§x§" + ampMatcher.group(1) + "§" + ampMatcher.group(2)
+                    + "§" + ampMatcher.group(3) + "§" + ampMatcher.group(4)
+                    + "§" + ampMatcher.group(5) + "§" + ampMatcher.group(6);
+            ampMatcher.appendReplacement(ampBuffer, Matcher.quoteReplacement(bungee));
+        }
+        ampMatcher.appendTail(ampBuffer);
+        String preProcessed = ampBuffer.toString();
+
+        String withTranslated = ChatColor.translateAlternateColorCodes('&', preProcessed);
+
+        // &#RRGGBB → §x§R§G§B§R§G§B
+        Matcher hexMatcher = HEX_PATTERN.matcher(withTranslated);
+        StringBuilder buffer = new StringBuilder(withTranslated.length() + 32);
+        while (hexMatcher.find()) {
+            String hex = hexMatcher.group(1);
+            String bungeeHex = "§x§" + hex.charAt(0) + "§" + hex.charAt(1)
+                    + "§" + hex.charAt(2) + "§" + hex.charAt(3)
+                    + "§" + hex.charAt(4) + "§" + hex.charAt(5);
+            hexMatcher.appendReplacement(buffer, Matcher.quoteReplacement(bungeeHex));
+        }
+        hexMatcher.appendTail(buffer);
+
+        String result = buffer.toString();
+        COLOR_CACHE.put(message, result);
+        return result;
+    }
+
+    // ════════════════════════════════════════════════════════════════════════════
+    // PUBLIC API — Cache management
+    // ════════════════════════════════════════════════════════════════════════════
+
+    /**
+     * Clears all caches. Call this on plugin reload or language change.
+     */
+    public static void invalidateCache() {
+        NORMALIZE_CACHE.clear();
+        COMPONENT_CACHE.clear();
+        COLOR_CACHE.clear();
+    }
+
+    /**
+     * Removes a specific key from all caches.
+     *
+     * @param key the exact raw string that was previously cached
+     */
+    public static void invalidateCache(@NotNull String key) {
+        NORMALIZE_CACHE.remove(key);
+        COMPONENT_CACHE.remove(key);
+        COLOR_CACHE.remove(key);
+    }
+
+    /**
+     * Returns a snapshot of current cache statistics for diagnostics.
+     *
+     * @return {@link CacheStats} record
+     */
+    public static @NotNull CacheStats getCacheStats() {
+        return new CacheStats(
+                NORMALIZE_CACHE.stats(),
+                COMPONENT_CACHE.stats(),
+                COLOR_CACHE.stats()
+        );
+    }
+
+    // ════════════════════════════════════════════════════════════════════════════
+    // Config / server messages shorthand
+    // ════════════════════════════════════════════════════════════════════════════
+
+    /**
+     * Shorthand for config/server strings. Automatically uses the component
+     * cache since config values are static.
+     */
+    public static @NotNull Component parseConfigComponent(@NotNull String message) {
+        return parseComponentCached(message);
+    }
+
+    // ════════════════════════════════════════════════════════════════════════════
+    // PRIVATE — Normalisation
+    // ════════════════════════════════════════════════════════════════════════════
+
+    private static @NotNull String normalizeToMiniMessage(@NotNull String message) {
+        if (message.isEmpty()) return message;
+
+        String cached = NORMALIZE_CACHE.get(message);
+        if (cached != null) return cached;
 
         String result = message;
 
-        // &x&R&G&B&R&G&B -> <reset><#RRGGBB>  (must run before safelyConvertLegacyColors)
+        // &x&R&G&B&R&G&B → <#RRGGBB>
         Matcher ampMatcher = AMPERSAND_HEX_PATTERN.matcher(result);
         StringBuffer ampBuffer = new StringBuffer(result.length());
-
         while (ampMatcher.find()) {
             String hex = ampMatcher.group(1) + ampMatcher.group(2)
                     + ampMatcher.group(3) + ampMatcher.group(4)
                     + ampMatcher.group(5) + ampMatcher.group(6);
-            ampMatcher.appendReplacement(ampBuffer, Matcher.quoteReplacement("<reset><#" + hex + ">"));
+            ampMatcher.appendReplacement(ampBuffer, Matcher.quoteReplacement("<#" + hex + ">"));
         }
-
         ampMatcher.appendTail(ampBuffer);
         result = ampBuffer.toString();
 
-        // §x§R§G§B§R§G§B -> <reset><#RRGGBB>
+        // §x§R§G§B§R§G§B → <#RRGGBB>
         Matcher bungeeMatcher = BUNGEE_HEX_PATTERN.matcher(result);
         StringBuffer bungeeBuffer = new StringBuffer(result.length());
-
         while (bungeeMatcher.find()) {
             String hex = bungeeMatcher.group(1) + bungeeMatcher.group(2)
                     + bungeeMatcher.group(3) + bungeeMatcher.group(4)
                     + bungeeMatcher.group(5) + bungeeMatcher.group(6);
-            bungeeMatcher.appendReplacement(bungeeBuffer, Matcher.quoteReplacement("<reset><#" + hex + ">"));
+            bungeeMatcher.appendReplacement(bungeeBuffer, Matcher.quoteReplacement("<#" + hex + ">"));
         }
-
         bungeeMatcher.appendTail(bungeeBuffer);
         result = bungeeBuffer.toString();
 
-        // &#FFFFFF -> <reset><#FFFFFF>
+        // &#FFFFFF → <#FFFFFF>
         Matcher hexMatcher = HEX_PATTERN.matcher(result);
         StringBuffer hexBuffer = new StringBuffer(result.length() + 32);
-
         while (hexMatcher.find()) {
-            hexMatcher.appendReplacement(hexBuffer, "<reset><#" + hexMatcher.group(1) + ">");
+            hexMatcher.appendReplacement(hexBuffer, "<#" + hexMatcher.group(1) + ">");
         }
-
         hexMatcher.appendTail(hexBuffer);
         result = hexBuffer.toString();
 
-        // &a / §a -> <reset><green>, etc.
-        result = safelyConvertLegacyColors(result);
+        // &a / §a → <green>, &l → <bold>, etc.
+        result = convertLegacyCodesToMiniMessage(result);
 
+        NORMALIZE_CACHE.put(message, result);
         return result;
     }
 
-private static String safelyConvertLegacyColors(String message) {
-        if (message == null || message.isEmpty()) return message;
+    private static @NotNull String convertLegacyCodesToMiniMessage(@NotNull String message) {
+        if (message.isEmpty()) return message;
 
         StringBuilder result = new StringBuilder(message.length() + 16);
         int i   = 0;
@@ -406,25 +688,22 @@ private static String safelyConvertLegacyColors(String message) {
         while (i < len) {
             char current = message.charAt(i);
 
-            // Do not modify already existing MiniMessage tags.
+            // Skip MiniMessage tags intact
             if (current == '<') {
                 int endTag = message.indexOf('>', i);
                 if (endTag != -1) {
-                    // Process content inside the tag for color codes
-                    String tagContent = message.substring(i + 1, endTag);
-                    String processedContent = safelyConvertLegacyColors(tagContent);
-                    result.append('<').append(processedContent).append('>');
+                    result.append(message, i, endTag + 1);
                     i = endTag + 1;
                     continue;
                 }
             }
 
-            // Convert both &x and §x
+            // Convert &x and §x codes
             if (i < len - 1 && (current == '&' || current == '§')) {
                 char code = message.charAt(i + 1);
-                String miniMessageTag = convertLegacyCodeToMiniMessage(code);
-                if (miniMessageTag != null) {
-                    result.append(miniMessageTag);
+                String tag = legacyCodeToMiniMessageTag(code);
+                if (tag != null) {
+                    result.append(tag);
                     i += 2;
                     continue;
                 }
@@ -437,101 +716,93 @@ private static String safelyConvertLegacyColors(String message) {
         return result.toString();
     }
 
-    private static String convertLegacyCodeToMiniMessage(char code) {
-        // Color codes reset all active formatting (bold, italic, etc.) before applying
-        // the new color, matching classic Minecraft legacy behavior.
-        switch (code) {
-            case '0': return "<reset><black>";
-            case '1': return "<reset><dark_blue>";
-            case '2': return "<reset><dark_green>";
-            case '3': return "<reset><dark_aqua>";
-            case '4': return "<reset><dark_red>";
-            case '5': return "<reset><dark_purple>";
-            case '6': return "<reset><gold>";
-            case '7': return "<reset><gray>";
-            case '8': return "<reset><dark_gray>";
-            case '9': return "<reset><blue>";
-            case 'a': case 'A': return "<reset><green>";
-            case 'b': case 'B': return "<reset><aqua>";
-            case 'c': case 'C': return "<reset><red>";
-            case 'd': case 'D': return "<reset><light_purple>";
-            case 'e': case 'E': return "<reset><yellow>";
-            case 'f': case 'F': return "<reset><white>";
-            case 'k': case 'K': return "<obfuscated>";
-            case 'l': case 'L': return "<bold>";
-            case 'm': case 'M': return "<strikethrough>";
-            case 'n': case 'N': return "<underlined>";
-            case 'o': case 'O': return "<italic>";
-            case 'r': case 'R': return "<reset>";
-            default:            return null;
+    private static @Nullable String legacyCodeToMiniMessageTag(char code) {
+        return switch (code) {
+            case '0'       -> "<reset><black>";
+            case '1'       -> "<reset><dark_blue>";
+            case '2'       -> "<reset><dark_green>";
+            case '3'       -> "<reset><dark_aqua>";
+            case '4'       -> "<reset><dark_red>";
+            case '5'       -> "<reset><dark_purple>";
+            case '6'       -> "<reset><gold>";
+            case '7'       -> "<reset><gray>";
+            case '8'       -> "<reset><dark_gray>";
+            case '9'       -> "<reset><blue>";
+            case 'a', 'A' -> "<reset><green>";
+            case 'b', 'B' -> "<reset><aqua>";
+            case 'c', 'C' -> "<reset><red>";
+            case 'd', 'D' -> "<reset><light_purple>";
+            case 'e', 'E' -> "<reset><yellow>";
+            case 'f', 'F' -> "<reset><white>";
+            case 'k', 'K' -> "<obfuscated>";
+            case 'l', 'L' -> "<bold>";
+            case 'm', 'M' -> "<strikethrough>";
+            case 'n', 'N' -> "<underlined>";
+            case 'o', 'O' -> "<italic>";
+            case 'r', 'R' -> "<reset>";
+            default        -> null;
+        };
+    }
+
+    // ════════════════════════════════════════════════════════════════════════════
+    // PRIVATE — Helpers
+    // ════════════════════════════════════════════════════════════════════════════
+
+    private static @NotNull Component fallbackParse(@NotNull String message) {
+        try {
+            return LegacyComponentSerializer.legacySection().deserialize(parseColor(message));
+        } catch (Exception ignored) {
+            return Component.text(stripFormattingFallback(message));
         }
     }
 
-    private static boolean containsLegacyCodes(String message) {
-        if (message == null || message.isEmpty()) return false;
-        return AMPERSAND_HEX_PATTERN.matcher(message).find()
-                || HEX_PATTERN.matcher(message).find()
-                || LEGACY_COLOR_PATTERN.matcher(message).find()
-                || SECTION_COLOR_PATTERN.matcher(message).find();
+    private static @NotNull String stripFormattingFallback(@NotNull String message) {
+        String result = AMPERSAND_HEX_PATTERN.matcher(message).replaceAll("");
+        result = HEX_PATTERN.matcher(result).replaceAll("");
+        result = LEGACY_COLOR_PATTERN.matcher(result).replaceAll("");
+        result = SECTION_COLOR_PATTERN.matcher(result).replaceAll("");
+        result = result.replaceAll("<[^>]+>", "");
+        return result;
     }
 
-    private static TagResolver createHeadTagResolver() {
+    private static @NotNull TagResolver createHeadTagResolver() {
         return TagResolver.resolver("head", (args, context) -> {
             String target = args.popOr("The <head> tag requires a player name, UUID, or texture path").value();
             boolean showHat = true;
-
             if (args.hasNext()) {
-                showHat = parseBooleanArgument(args.pop().value(), context);
+                String raw = args.pop().value();
+                if ("true".equalsIgnoreCase(raw))       showHat = true;
+                else if ("false".equalsIgnoreCase(raw)) showHat = false;
+                else throw context.newException("The <head> tag hat argument must be true or false", null);
             }
-
             return Tag.inserting(createHeadComponent(target, showHat));
         });
     }
 
-    private static boolean parseBooleanArgument(String raw, Context context) {
-        if ("true".equalsIgnoreCase(raw)) {
-            return true;
-        }
-        if ("false".equalsIgnoreCase(raw)) {
-            return false;
-        }
+    private static @NotNull Component createHeadComponent(@NotNull String rawTarget, boolean showHat) {
+        String target = rawTarget.trim();
+        if (target.isEmpty()) return Component.empty();
 
-        throw context.newException("The <head> tag outer layer argument must be true or false", null);
-    }
-
-    private static Component createHeadComponent(String rawTarget, boolean showHat) {
-        String target = rawTarget == null ? "" : rawTarget.trim();
-        if (target.isEmpty()) {
-            return Component.empty();
-        }
-
-        PlayerHeadObjectContents.Builder headBuilder = ObjectContents.playerHead().hat(showHat);
+        PlayerHeadObjectContents.Builder builder = ObjectContents.playerHead().hat(showHat);
         UUID uuid = tryParseUuid(target);
 
-        if (uuid != null) {
-            headBuilder.id(uuid);
-        } else if (looksLikeTexturePath(target)) {
-            headBuilder.texture(parseTextureKey(target));
-        } else {
-            headBuilder.name(target);
-        }
+        if (uuid != null)                    builder.id(uuid);
+        else if (looksLikeTexturePath(target)) builder.texture(parseTextureKey(target));
+        else                                   builder.name(target);
 
-        return Component.object(headBuilder.build());
+        return Component.object(builder.build());
     }
 
-    private static UUID tryParseUuid(String value) {
-        try {
-            return UUID.fromString(value);
-        } catch (IllegalArgumentException ignored) {
-            return null;
-        }
+    private static @Nullable UUID tryParseUuid(@NotNull String value) {
+        try { return UUID.fromString(value); }
+        catch (IllegalArgumentException ignored) { return null; }
     }
 
-    private static boolean looksLikeTexturePath(String value) {
+    private static boolean looksLikeTexturePath(@NotNull String value) {
         return value.indexOf('/') >= 0 || value.indexOf(':') >= 0;
     }
 
-    private static Key parseTextureKey(String value) {
+    private static @NotNull Key parseTextureKey(@NotNull String value) {
         return value.indexOf(':') >= 0 ? Key.key(value) : Key.key("minecraft", value);
     }
 }

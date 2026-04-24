@@ -94,11 +94,9 @@ Visit our [Wiki](https://github.com/nonxedy/nonchat/wiki) for detailed setup ins
 
 | Status | Task |
 |:------:|------|
-| ⏳ | Fix issue when players without perm can use MiniMessage codes |
 | ⏳ | Make channel names clickable to switch to them |
 | 🔜 | Rewrite code to Kotlin |
 | 🔜 | Refactor code to modular type for mc version support |
-| 🔜 | Update getting colors in messages_.yml |
 
 </div>
 
