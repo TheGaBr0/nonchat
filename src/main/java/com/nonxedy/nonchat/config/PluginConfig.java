@@ -814,11 +814,11 @@ public class PluginConfig {
 
     /**
      * Gets chat bubble background color
-     * @return Background color as hex string (e.g., "#000000")
+     * @return Background color as hex string (e.g., "#00000000")
      */
     @NotNull
     public String getChatBubblesBackgroundColor() {
-        return config.getString("chat-bubbles.background-color", "#000000");
+        return config.getString("chat-bubbles.background-color", "#00000000");
     }
 
     /**
