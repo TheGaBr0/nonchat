@@ -451,27 +451,50 @@ public final class ColorUtil {
     // ════════════════════════════════════════════════════════════════════════════
 
     /**
-     * Parses a CSS-style hex color string into a Bukkit {@link Color}.
+     * Parses a hex color string into a Bukkit {@link Color}.
      *
-     * <p>Supports both 3-digit ({@code #RGB}) and 6-digit ({@code #RRGGBB}) hex.
+     * Supported formats (with or without leading {@code #}):
+     * <ul>
+     *   <li>{@code #RGB}       -> expanded to RRGGBB, full opacity</li>
+     *   <li>{@code #RRGGBB}   -> full opacity</li>
+     *   <li>{@code #RRGGBBAA} -> RRGGBB + alpha channel (00 = transparent, FF = opaque)</li>
+     * </ul>
      *
      * @param hexColor hex string with or without leading {@code #}
      * @return {@link Color}, or {@link Color#BLACK} on parse failure
      */
     public static @NotNull Color parseHexColor(@NotNull String hexColor) {
-        if (hexColor.isEmpty()) return Color.BLACK;
+        if (hexColor == null || hexColor.isEmpty()) return Color.BLACK;
         try {
             String hex = hexColor.startsWith("#") ? hexColor.substring(1) : hexColor;
+
+            // #RGB -> #RRGGBB
             if (hex.length() == 3) {
                 hex = "" + hex.charAt(0) + hex.charAt(0)
                         + hex.charAt(1) + hex.charAt(1)
                         + hex.charAt(2) + hex.charAt(2);
             }
-            if (hex.length() != 6) return Color.BLACK;
-            int r = Integer.parseInt(hex.substring(0, 2), 16);
-            int g = Integer.parseInt(hex.substring(2, 4), 16);
-            int b = Integer.parseInt(hex.substring(4, 6), 16);
-            return Color.fromRGB(r, g, b);
+
+            int r, g, b, a;
+
+            if (hex.length() == 6) {
+                // #RRGGBB — full opacity
+                r = Integer.parseInt(hex.substring(0, 2), 16);
+                g = Integer.parseInt(hex.substring(2, 4), 16);
+                b = Integer.parseInt(hex.substring(4, 6), 16);
+                return Color.fromRGB(r, g, b);
+
+            } else if (hex.length() == 8) {
+                // #RRGGBBAA — RGB + alpha (config/CSS convention used in nonchat)
+                r = Integer.parseInt(hex.substring(0, 2), 16);
+                g = Integer.parseInt(hex.substring(2, 4), 16);
+                b = Integer.parseInt(hex.substring(4, 6), 16);
+                a = Integer.parseInt(hex.substring(6, 8), 16);
+                return Color.fromARGB(a, r, g, b);
+
+            } else {
+                return Color.BLACK;
+            }
         } catch (IllegalArgumentException e) {
             return Color.BLACK;
         }
