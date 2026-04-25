@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.nonxedy.nonchat</groupId>
   <artifactId>nonchat</artifactId>
-  <version>1.5.9</version>
+  <version>1.6.0</version>
   <build>
     <finalName>nonchat-${project.version}${dev.build.suffix}</finalName>
     <pluginManagement>
@@ -71,10 +71,6 @@
                 <relocation>
                   <pattern>org.apache.commons.lang3</pattern>
                   <shadedPattern>com.nonxedy.nonchat.libs.commonslang3</shadedPattern>
-                </relocation>
-                <relocation>
-                  <pattern>org.bstats</pattern>
-                  <shadedPattern>com.nonxedy.nonchat.libs.bstats</shadedPattern>
                 </relocation>
               </relocations>
             </configuration>
@@ -167,7 +163,7 @@
     </dependency>
   </dependencies>
   <properties>
-    <maven.compiler.release>21</maven.compiler.release>
+    <maven.compiler.release>25</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
 </project>
