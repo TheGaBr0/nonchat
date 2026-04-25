@@ -11,12 +11,17 @@ public final class VersionDetector {
 
     public static IPlatformAdapter detect() {
         String bukkitVersion = Bukkit.getBukkitVersion();
+        ClassLoader cl = IPlatformAdapter.class.getClassLoader();
 
-        return ServiceLoader.load(IPlatformAdapter.class)
+        return ServiceLoader.load(IPlatformAdapter.class, cl)
             .stream()
             .map(ServiceLoader.Provider::get)
             .filter(adapter -> adapter.supports(bukkitVersion))
-            .max(Comparator.comparingInt(adapter -> adapter.getSupportedVersion().length()))
-            .orElseThrow(() -> new IllegalStateException("Unsupported server version: " + bukkitVersion));
+            .max(Comparator.comparingInt(
+                adapter -> adapter.getSupportedVersion().split("\\.").length
+            ))
+            .orElseThrow(() -> new IllegalStateException(
+                "Unsupported server version: " + bukkitVersion
+            ));
     }
 }
