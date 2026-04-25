@@ -863,6 +863,7 @@ public class PluginConfig {
      * @param enabled Whether the message is enabled
      * @param message The message content
      * @param interval The broadcast interval
+     * @param displayInConsole Whether if the message should be display on console or not
      * @return New BroadcastMessage instance
      */
     public BroadcastMessage createBroadcastMessage(boolean enabled, String message, int interval, boolean displayInConsole) {
@@ -1437,6 +1438,8 @@ public class PluginConfig {
         String currentVersion = savesConfig.getString("version");
         String pluginVersion = plugin.getPluginMeta().getVersion(); // getDescription() is deprecated
         boolean isUpdated = pluginVersion.equals(currentVersion);
+
+
 
         // Only save if version changed
         if (currentVersion == null || !currentVersion.equals(pluginVersion)) {

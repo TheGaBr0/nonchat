@@ -1,7 +1,6 @@
 package com.nonxedy.nonchat.api;
 
 import com.nonxedy.nonchat.util.core.broadcast.BroadcastMessage;
-import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
 public interface IMessageHandler {

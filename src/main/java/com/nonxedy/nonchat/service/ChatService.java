@@ -1,7 +1,6 @@
 package com.nonxedy.nonchat.service;
 
 import com.nonxedy.nonchat.util.core.broadcast.BroadcastMessage;
-import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
 import com.nonxedy.nonchat.api.IMessageHandler;

@@ -8,7 +8,6 @@ import java.util.stream.Collectors;
 
 import com.nonxedy.nonchat.util.integration.external.IntegrationUtil;
 import org.bukkit.Bukkit;
-import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitTask;
 
