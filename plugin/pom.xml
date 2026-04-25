@@ -106,11 +106,6 @@
                   <pattern>org.apache.commons.lang3</pattern>
                   <shadedPattern>com.nonxedy.nonchat.libs.commonslang3</shadedPattern>
                 </relocation>
-                <!-- Adventure for 1.16 -->
-                <relocation>
-                  <pattern>net.kyori.adventure</pattern>
-                  <shadedPattern>com.nonxedy.nonchat.libs.adventure</shadedPattern>
-                </relocation>
               </relocations>
 
               <filters>

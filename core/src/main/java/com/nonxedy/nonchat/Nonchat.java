@@ -38,7 +38,6 @@ import com.nonxedy.nonchat.util.integration.external.IntegrationUtil;
 
 import lombok.extern.slf4j.Slf4j;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.TextColor;
 
 @Slf4j
 public class Nonchat extends JavaPlugin {
@@ -368,9 +367,7 @@ public class Nonchat extends JavaPlugin {
             // Cancel all remaining Bukkit tasks for this plugin
             Bukkit.getScheduler().cancelTasks(this);
 
-            Bukkit.getConsoleSender().sendMessage(Component.text()
-                    .append(Component.text("[nonchat] ", TextColor.fromHexString("#E088FF")))
-                    .append(Component.text("plugin disabled", TextColor.fromHexString("#FF5252"))));
+            Bukkit.getConsoleSender().sendMessage("§d[nonchat] §cplugin disabled");
             
         } catch (Exception e) {
             getLogger().log(Level.WARNING, "Error during plugin shutdown: {0}", e.getMessage());

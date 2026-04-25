@@ -8,7 +8,12 @@ public interface IPlatformAdapter {
     void registerChatListener(Plugin plugin, IMessageHandler handler);
 
     default boolean supports(String bukkitVersion) {
-        return bukkitVersion != null && bukkitVersion.startsWith(getSupportedVersion());
+        if (bukkitVersion == null) {
+            return false;
+        }
+
+        String normalizedVersion = bukkitVersion.split("-")[0];
+        return normalizedVersion.startsWith(getSupportedVersion());
     }
 
     default void cleanup() {
