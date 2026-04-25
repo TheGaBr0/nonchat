@@ -44,7 +44,6 @@ import com.nonxedy.nonchat.util.chat.packets.DisplayEntityUtil;
 import com.nonxedy.nonchat.util.core.debugging.Debugger;
 import com.nonxedy.nonchat.util.core.updates.UpdateChecker;
 import com.nonxedy.nonchat.util.integration.external.IntegrationUtil;
-import com.nonxedy.nonchat.util.integration.metrics.Metrics;
 
 import dev.faststats.bukkit.BukkitMetrics;
 import dev.faststats.core.ErrorTracker;
@@ -78,22 +77,13 @@ public class Nonchat extends JavaPlugin {
 
     public static final ErrorTracker ERROR_TRACKER = ErrorTracker.contextAware();
     private final BukkitMetrics metrics = BukkitMetrics.factory()
-        // Required: Your API token
-        // This token does not have to be treated as a secret
         .token("b1aef8463d939edcdbdd4027352dcc86")
-        // Optional: Add custom metrics
         .addMetric(Metric.number("worlds", () -> getServer().getWorlds().size()))
         .addMetric(Metric.number("plugins", () -> getServer().getPluginManager().getPlugins().length))
         .addMetric(Metric.number("players_online", () -> getServer().getOnlinePlayers().size()))
-        // Optional: Attach an error tracker
-        // This must be enabled in the project settings
         .errorTracker(ERROR_TRACKER)
-        // Optional: Project specific debug logging, useful during development
         .debug(true)
-        // Optional: Called when metrics data is flushed and the server accepted the data
-        // Useful for cleaning up data, invalidating caches, or resetting counters
-        .onFlush(() -> resetCounters())
-        // Create the metrics instance
+        .onFlush(() -> resetCounters()) // Useful for cleaning up data, invalidating caches, or resetting counters
         .create(this);
 
     @Override
@@ -310,16 +300,6 @@ public class Nonchat extends JavaPlugin {
             getLogger().info("Some external integrations not available - features will be disabled");
         } catch (Exception e) {
             getLogger().log(Level.WARNING, "Failed to setup external integrations: {0}", e.getMessage());
-        }
-
-        try {
-            // Initialize metrics
-            new Metrics(this, 25786);
-            getLogger().info("Metrics initialized successfully");
-        } catch (NoClassDefFoundError e) {
-            getLogger().info("Metrics not available - metrics will be disabled");
-        } catch (Exception e) {
-            getLogger().log(Level.WARNING, "Failed to initialize metrics: {0}", e.getMessage());
         }
 
         try {

@@ -98,12 +98,6 @@
 			<scope>provided</scope>
 		</dependency>
 		<dependency>
-			<groupId>org.bstats</groupId>
-			<artifactId>bstats-bukkit</artifactId>
-			<version>3.0.2</version>
-			<scope>compile</scope>
-		</dependency>
-		<dependency>
   			<groupId>dev.faststats.metrics</groupId>
   			<artifactId>bukkit</artifactId>
   			<version>0.18.1</version>
@@ -161,10 +155,6 @@
 								<relocation>
 									<pattern>org.apache.commons.lang3</pattern>
 									<shadedPattern>com.nonxedy.nonchat.libs.commonslang3</shadedPattern>
-								</relocation>
-								<relocation>
-									<pattern>org.bstats</pattern>
-									<shadedPattern>com.nonxedy.nonchat.libs.bstats</shadedPattern>
 								</relocation>
 							</relocations>
 						</configuration>
