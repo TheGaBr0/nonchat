@@ -12,7 +12,7 @@
   </parent>
 
   <artifactId>nonchat-core</artifactId>
-  <name>nonchat — Core</name>
+  <name>nonchat - Core</name>
 
   <dependencies>
     <dependency>
@@ -20,7 +20,32 @@
       <artifactId>nonchat-api</artifactId>
     </dependency>
 
-    <!-- LuckPerms, PAPI, Vault, DiscordSRV — provided -->
+    <dependency>
+      <groupId>com.destroystokyo.paper</groupId>
+      <artifactId>paper-api</artifactId>
+      <version>1.16.5-R0.1-SNAPSHOT</version>
+      <scope>provided</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>net.kyori</groupId>
+      <artifactId>adventure-api</artifactId>
+      <version>${adventure.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>net.kyori</groupId>
+      <artifactId>adventure-text-minimessage</artifactId>
+      <version>${adventure.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>net.kyori</groupId>
+      <artifactId>adventure-text-serializer-plain</artifactId>
+      <version>${adventure.version}</version>
+      <scope>provided</scope>
+    </dependency>
+
     <dependency>
       <groupId>net.luckperms</groupId>
       <artifactId>api</artifactId>
@@ -42,7 +67,6 @@
       <artifactId>lombok</artifactId>
     </dependency>
 
-    <!-- Shaded libraries (will be enabled in :plugin) -->
     <dependency>
       <groupId>com.github.ben-manes.caffeine</groupId>
       <artifactId>caffeine</artifactId>

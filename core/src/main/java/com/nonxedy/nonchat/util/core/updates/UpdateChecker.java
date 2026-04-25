@@ -43,7 +43,7 @@ public final class UpdateChecker implements Listener {
     // Constructor to initialize class variables
     public UpdateChecker(Nonchat plugin) {
         this.plugin = plugin;
-        this.currentVersion = plugin.getPluginMeta().getVersion();
+        this.currentVersion = plugin.getDescription().getVersion();
         
         if (plugin instanceof Nonchat nonchatPlugin) {
             if (!nonchatPlugin.getConfigService().getConfig().isUpdateCheckerEnabled()) {
@@ -86,9 +86,14 @@ public final class UpdateChecker implements Listener {
                 plugin.logResponse("Checking for updates from: " + MODRINTH_API);
                 
                 // Parse JSON response to get latest version info
-                JsonObject latestVersion = JsonParser.parseReader(
-                    new InputStreamReader(connection.getInputStream())
-                ).getAsJsonArray().get(0).getAsJsonObject();
+                JsonObject latestVersion;
+                try (InputStreamReader reader = new InputStreamReader(connection.getInputStream())) {
+                    latestVersion = new JsonParser()
+                        .parse(reader)
+                        .getAsJsonArray()
+                        .get(0)
+                        .getAsJsonObject();
+                }
     
                 // Extract version information
                 this.latestVersion = latestVersion.get("version_number").getAsString();

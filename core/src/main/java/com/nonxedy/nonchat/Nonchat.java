@@ -2,19 +2,13 @@ package com.nonxedy.nonchat;
 
 import java.io.File;
 import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.logging.Level;
 
 import org.bukkit.Bukkit;
-import org.bukkit.entity.Player;
-import org.bukkit.entity.TextDisplay;
-import org.bukkit.event.EventHandler;
-import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import com.nonxedy.nonchat.api.ChannelAPI;
+import com.nonxedy.nonchat.api.IPlatformAdapter;
 import com.nonxedy.nonchat.command.impl.IgnoreCommand;
 import com.nonxedy.nonchat.command.impl.SpyCommand;
 import com.nonxedy.nonchat.config.DeathConfig;
@@ -42,9 +36,6 @@ import com.nonxedy.nonchat.util.core.debugging.Debugger;
 import com.nonxedy.nonchat.util.core.updates.UpdateChecker;
 import com.nonxedy.nonchat.util.integration.external.IntegrationUtil;
 
-import dev.faststats.bukkit.BukkitMetrics;
-import dev.faststats.core.ErrorTracker;
-import dev.faststats.core.data.Metric;
 import lombok.extern.slf4j.Slf4j;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextColor;
@@ -70,18 +61,7 @@ public class Nonchat extends JavaPlugin {
     private DamageTrackingListener damageTrackingListener;
     private PlayerCleanupListener playerCleanupListener;
     private MentionTabCompleteListener mentionTabCompleteListener;
-    private final Map<Player, List<TextDisplay>> bubbles = new HashMap<>();
-
-    public static final ErrorTracker ERROR_TRACKER = ErrorTracker.contextAware();
-    private final BukkitMetrics metrics = BukkitMetrics.factory()
-        .token("b1aef8463d939edcdbdd4027352dcc86")
-        .addMetric(Metric.number("worlds", () -> getServer().getWorlds().size()))
-        .addMetric(Metric.number("plugins", () -> getServer().getPluginManager().getPlugins().length))
-        .addMetric(Metric.number("players_online", () -> getServer().getOnlinePlayers().size()))
-        .errorTracker(ERROR_TRACKER)
-        .debug(true)
-        .onFlush(() -> resetCounters()) // Useful for cleaning up data, invalidating caches, or resetting counters
-        .create(this);
+    private IPlatformAdapter platformAdapter;
 
     @Override
     public void onEnable() {
@@ -224,8 +204,8 @@ public class Nonchat extends JavaPlugin {
     private void registerListeners() {
         try {
             // Register platform adapter
-            IPlatformAdapter adapter = VersionDetector.detect();
-            adapter.registerChatListener(this, chatManager, chatService);
+            this.platformAdapter = VersionDetector.detect();
+            platformAdapter.registerChatListener(this, chatService);
 
             // Register death-related listeners
             if (deathMessageService != null && deathConfig != null) {
@@ -302,7 +282,22 @@ public class Nonchat extends JavaPlugin {
         try {
             // Initialize DiscordSRV
             new DiscordSRVHook(this);
-            ChannelAPI.initialize(this);
+            ChannelAPI.initialize(new ChannelAPI.ChannelAccess() {
+                @Override
+                public java.util.Collection<com.nonxedy.nonchat.api.Channel> getAllChannels() {
+                    return chatManager.getChannelManager().getAllChannels();
+                }
+
+                @Override
+                public com.nonxedy.nonchat.api.Channel getChannel(String channelId) {
+                    return chatManager.getChannelManager().getChannel(channelId);
+                }
+
+                @Override
+                public com.nonxedy.nonchat.api.Channel getPlayerChannel(org.bukkit.entity.Player player) {
+                    return chatManager.getPlayerChannel(player);
+                }
+            });
 
             // Initialize DiscordSRV listener
             if (Bukkit.getPluginManager().getPlugin("DiscordSRV") != null) {
@@ -341,8 +336,9 @@ public class Nonchat extends JavaPlugin {
                 chatManager.cleanup();
             }
 
-            // Clear display entity pool
-            adapter.clearPool();
+            if (platformAdapter != null) {
+                platformAdapter.cleanup();
+            }
 
             // Cancel all scheduled tasks
             if (broadcastManager != null) {
@@ -376,19 +372,9 @@ public class Nonchat extends JavaPlugin {
                     .append(Component.text("[nonchat] ", TextColor.fromHexString("#E088FF")))
                     .append(Component.text("plugin disabled", TextColor.fromHexString("#FF5252"))));
             
-            metrics.shutdown();
         } catch (Exception e) {
             getLogger().log(Level.WARNING, "Error during plugin shutdown: {0}", e.getMessage());
         }
-    }
-
-    /**
-     * Resets counters for metrics collection.
-     * This method is called when metrics data is flushed.
-     */
-    private void resetCounters() {
-        // Reset any counters or metrics data here if needed
-        // Currently no specific counters to reset, but method is required by metrics API
     }
 
     @Override
@@ -517,18 +503,6 @@ public class Nonchat extends JavaPlugin {
             
         } catch (Exception e) {
             getLogger().log(Level.WARNING, "Failed to reload death tracking listeners: {0}", e.getMessage());
-        }
-    }
-
-    @EventHandler
-    public void onPlayerTeleport(PlayerTeleportEvent event) {
-        try {
-            List<TextDisplay> playerBubbles = bubbles.remove(event.getPlayer());
-            if (playerBubbles != null) {
-                DisplayEntityUtil.removeBubbles(playerBubbles);
-            }
-        } catch (Exception e) {
-            getLogger().log(Level.FINE, "Error handling player teleport: {0}", e.getMessage());
         }
     }
 

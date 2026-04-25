@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
+import java.lang.reflect.Method;
 import java.util.stream.Collectors;
 
 import org.bukkit.Bukkit;
@@ -41,7 +42,7 @@ public class MentionTabCompleteListener implements Listener {
     public void onPlayerQuit(PlayerQuitEvent event) {
         String mention = "@" + event.getPlayer().getName();
         for (Player onlinePlayer : Bukkit.getOnlinePlayers()) {
-            onlinePlayer.removeCustomChatCompletions(List.of(mention));
+            removeCustomChatCompletions(onlinePlayer, List.of(mention));
         }
     }
 
@@ -128,6 +129,22 @@ public class MentionTabCompleteListener implements Listener {
                 .map(onlinePlayer -> "@" + onlinePlayer.getName())
                 .collect(Collectors.toList());
 
-        player.setCustomChatCompletions(mentions);
+        setCustomChatCompletions(player, mentions);
+    }
+
+    private void removeCustomChatCompletions(Player player, List<String> mentions) {
+        invokePlayerMethod(player, "removeCustomChatCompletions", List.class, mentions);
+    }
+
+    private void setCustomChatCompletions(Player player, Collection<String> mentions) {
+        invokePlayerMethod(player, "setCustomChatCompletions", Collection.class, mentions);
+    }
+
+    private void invokePlayerMethod(Player player, String methodName, Class<?> parameterType, Object argument) {
+        try {
+            Method method = player.getClass().getMethod(methodName, parameterType);
+            method.invoke(player, argument);
+        } catch (ReflectiveOperationException ignored) {
+        }
     }
 }

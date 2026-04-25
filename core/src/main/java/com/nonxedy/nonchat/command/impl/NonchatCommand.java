@@ -171,7 +171,7 @@ public class NonchatCommand implements CommandExecutor, TabCompleter {
     private void sendVersionMessage(CommandSender sender) {
         try {
             // Get plugin version from plugin.yml
-            String version = plugin.getPluginMeta().getVersion();
+            String version = plugin.getDescription().getVersion();
             // Replace placeholder in version message
             String versionMessage = messages.getString("version").replace("{version}", version);
             // Make links clickable in the version message

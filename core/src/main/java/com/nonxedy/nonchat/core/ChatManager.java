@@ -13,7 +13,6 @@ import org.bukkit.Color;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
-import org.bukkit.entity.TextDisplay;
 
 import com.nonxedy.nonchat.Nonchat;
 import com.nonxedy.nonchat.api.Channel;
@@ -40,7 +39,7 @@ public class ChatManager {
     private final PluginMessages messages;
     private final ChannelManager channelManager;
     private final Pattern mentionPattern = Pattern.compile("@(\\w+)");
-    private final Map<Player, List<TextDisplay>> bubbles = new ConcurrentHashMap<>();
+    private final Map<Player, List<Object>> bubbles = new ConcurrentHashMap<>();
     private final Map<Player, ReentrantLock> playerLocks = new ConcurrentHashMap<>();
     private IgnoreCommand ignoreCommand;
     private final AdDetector adDetector;
@@ -476,7 +475,7 @@ public class ChatManager {
             // Get background color from config
             Color backgroundColor = ColorUtil.parseHexColor(config.getChatBubblesBackgroundColor());
 
-            List<TextDisplay> playerBubbles = DisplayEntityUtil.spawnMultilineBubble(player, message, loc,
+            List<Object> playerBubbles = DisplayEntityUtil.spawnMultilineBubble(player, message, loc,
                     config.getChatBubblesScale(), config.getChatBubblesScaleX(), config.getChatBubblesScaleY(),
                     config.getChatBubblesScaleZ(), backgroundColor);
 
@@ -518,7 +517,7 @@ public class ChatManager {
 
     private void removeBubble(Player player) {
         try {
-            List<TextDisplay> playerBubbles = bubbles.remove(player);
+            List<Object> playerBubbles = bubbles.remove(player);
             if (playerBubbles != null) {
                 DisplayEntityUtil.removeBubbles(playerBubbles);
             }

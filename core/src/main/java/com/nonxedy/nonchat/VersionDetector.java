@@ -1,17 +1,22 @@
-public class VersionDetector {
+package com.nonxedy.nonchat;
+
+import com.nonxedy.nonchat.api.IPlatformAdapter;
+import java.util.Comparator;
+import java.util.ServiceLoader;
+import org.bukkit.Bukkit;
+
+public final class VersionDetector {
+    private VersionDetector() {
+    }
 
     public static IPlatformAdapter detect() {
-        String version = Bukkit.getBukkitVersion(); // e.g. "1.21.1-R0.1-SNAPSHOT"
-        
-        // ServiceLoader находит реализацию из classpath (нужный адаптер уже в jar)
-        ServiceLoader<IPlatformAdapter> loader =
-            ServiceLoader.load(IPlatformAdapter.class);
+        String bukkitVersion = Bukkit.getBukkitVersion();
 
-        for (IPlatformAdapter adapter : loader) {
-            if (version.startsWith(adapter.getSupportedVersion())) {
-                return adapter;
-            }
-        }
-        throw new IllegalStateException("Unsupported server version: " + version);
+        return ServiceLoader.load(IPlatformAdapter.class)
+            .stream()
+            .map(ServiceLoader.Provider::get)
+            .filter(adapter -> adapter.supports(bukkitVersion))
+            .max(Comparator.comparingInt(adapter -> adapter.getSupportedVersion().length()))
+            .orElseThrow(() -> new IllegalStateException("Unsupported server version: " + bukkitVersion));
     }
 }

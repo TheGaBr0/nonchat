@@ -27,19 +27,16 @@ public class ChatService implements IMessageHandler {
         chatManager.processChat(player, message);
     }
 
-    @Override
     public void handlePrivateMessage(Player sender, Player receiver, String message) {
         // Delegate to MessageManager which handles ignore checking internally
         messageManager.sendPrivateMessage(sender, receiver, message);
     }
 
-    @Override
     public void handleBroadcast(BroadcastMessage message) {
         // Broadcasts should always support colors (admin command)
         broadcastManager.broadcast(message);
     }
 
-    @Override
     public void handleStaffChat(Player sender, String message) {
         // Check if player is trying to use colors without permission in staff chat
         if (!sender.hasPermission("nonchat.color") && ColorUtil.hasColorCodes(message)) {

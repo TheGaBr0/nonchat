@@ -1436,7 +1436,7 @@ public class PluginConfig {
         }
 
         String currentVersion = savesConfig.getString("version");
-        String pluginVersion = plugin.getPluginMeta().getVersion(); // getDescription() is deprecated
+        String pluginVersion = plugin.getDescription().getVersion();
         boolean isUpdated = pluginVersion.equals(currentVersion);
 
 

@@ -34,7 +34,7 @@ public class DeathCoordinates implements Listener {
     @EventHandler(priority = EventPriority.HIGH)
     public void onPlayerDeath(PlayerDeathEvent event) {
         // This listener now ONLY handles coordinates, not death messages
-        Player player = event.getPlayer();
+        Player player = event.getEntity();
         Location deathLoc = player.getLocation();
         Environment dimension = deathLoc.getWorld().getEnvironment();
         

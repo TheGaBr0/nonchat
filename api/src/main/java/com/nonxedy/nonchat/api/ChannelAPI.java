@@ -14,18 +14,16 @@ import java.util.stream.Collectors;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
-import com.nonxedy.nonchat.Nonchat;
-
 /**
  * API for interacting with the nonchat plugin's channel system.
  * This class provides static methods for other plugins to access and
  * manipulate the chat channels.
  */
 public class ChannelAPI {
-    private static Nonchat plugin;
+    private static ChannelAccess access;
 
-    public static void initialize(Nonchat instance) {
-        plugin = instance;
+    public static void initialize(ChannelAccess instance) {
+        access = instance;
     }
 
     /**
@@ -33,7 +31,7 @@ public class ChannelAPI {
      * @return Collection of all channels
      */
     public static Collection<Channel> getAllChannels() {
-        return plugin.getChatManager().getChannelManager().getAllChannels();
+        return access.getAllChannels();
     }
 
     // Maps to store message processors and filters
@@ -46,7 +44,7 @@ public class ChannelAPI {
      * @return The channel, or null if not found
      */
     public static Channel getChannel(String channelId) {
-        return plugin.getChatManager().getChannelManager().getChannel(channelId);
+        return access.getChannel(channelId);
     }
 
     /**
@@ -64,7 +62,7 @@ public class ChannelAPI {
      * @return The player's current channel
      */
     public static Channel getPlayerChannel(Player player) {
-        return plugin.getChatManager().getPlayerChannel(player);
+        return access.getPlayerChannel(player);
     }
 
     /**
@@ -270,5 +268,13 @@ public class ChannelAPI {
     public static void cleanupAll() {
         channelProcessors.clear();
         channelFilters.clear();
+    }
+
+    public interface ChannelAccess {
+        Collection<Channel> getAllChannels();
+
+        Channel getChannel(String channelId);
+
+        Channel getPlayerChannel(Player player);
     }
 }

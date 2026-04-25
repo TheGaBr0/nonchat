@@ -490,7 +490,10 @@ public final class ColorUtil {
                 g = Integer.parseInt(hex.substring(2, 4), 16);
                 b = Integer.parseInt(hex.substring(4, 6), 16);
                 a = Integer.parseInt(hex.substring(6, 8), 16);
-                return Color.fromARGB(a, r, g, b);
+                if (a <= 0) {
+                    return Color.fromRGB(0, 0, 0);
+                }
+                return Color.fromRGB(r, g, b);
 
             } else {
                 return Color.BLACK;
