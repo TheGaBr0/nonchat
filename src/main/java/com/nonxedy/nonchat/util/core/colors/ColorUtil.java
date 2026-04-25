@@ -446,7 +446,6 @@ public final class ColorUtil {
         return new MessageParser(message);
     }
 
-<<<<<<< colorutil-rework
     // ════════════════════════════════════════════════════════════════════════════
     // PUBLIC API — Bukkit Color
     // ════════════════════════════════════════════════════════════════════════════
@@ -497,34 +496,8 @@ public final class ColorUtil {
                 return Color.BLACK;
             }
         } catch (IllegalArgumentException e) {
-=======
-    public static Color parseHexColor(String hex) {
-        if (hex == null || hex.isEmpty()) {
             return Color.BLACK;
         }
-    
-        // Support for #RRGGBB and #RRGGBBAA formats
-        if (hex.startsWith("#")) {
-            hex = hex.substring(1);
-        }
-    
-        int r, g, b, a = 255; // Full opacity by default
-    
-        if (hex.length() == 6) {
-            r = Integer.parseInt(hex.substring(0, 2), 16);
-            g = Integer.parseInt(hex.substring(2, 4), 16);
-            b = Integer.parseInt(hex.substring(4, 6), 16);
-        } else if (hex.length() == 8) {
-            r = Integer.parseInt(hex.substring(0, 2), 16);
-            g = Integer.parseInt(hex.substring(2, 4), 16);
-            b = Integer.parseInt(hex.substring(4, 6), 16);
-            a = Integer.parseInt(hex.substring(6, 8), 16);
-        } else {
->>>>>>> dev
-            return Color.BLACK;
-        }
-        
-        return Color.fromARGB(a, r, g, b);
     }
 
     // ════════════════════════════════════════════════════════════════════════════
