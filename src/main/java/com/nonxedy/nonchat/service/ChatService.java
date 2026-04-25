@@ -1,6 +1,6 @@
 package com.nonxedy.nonchat.service;
 
-import org.bukkit.command.CommandSender;
+import com.nonxedy.nonchat.util.core.broadcast.BroadcastMessage;
 import org.bukkit.entity.Player;
 
 import com.nonxedy.nonchat.api.IMessageHandler;
@@ -34,9 +34,9 @@ public class ChatService implements IMessageHandler {
     }
 
     @Override
-    public void handleBroadcast(CommandSender sender, String message) {
+    public void handleBroadcast(BroadcastMessage message) {
         // Broadcasts should always support colors (admin command)
-        broadcastManager.broadcast(sender, message);
+        broadcastManager.broadcast(message);
     }
 
     @Override

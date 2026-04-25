@@ -311,6 +311,8 @@ broadcast:
     message: "&#FFAFFBThis message is sent every &#E625DD5&#FFAFFB minutes. You can change the interval in the &#E625DDbroadcast.example.interval&#FFAFFB setting."
     # Interval in seconds for this message to be sent.
     interval: 300
+    # Whether if this message should be displayed in console or not
+    display-in-console: true
 
 # ==================================================
 # CHAT BUBBLE CONFIGURATION
