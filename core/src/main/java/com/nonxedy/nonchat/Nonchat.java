@@ -581,6 +581,10 @@ public class Nonchat extends JavaPlugin {
     public InteractivePlaceholderManager getPlaceholderManager() {
         return placeholderManager;
     }
+
+    public IPlatformAdapter getPlatformAdapter() {
+        return platformAdapter;
+    }
     
     public DeathMessageService getDeathMessageService() {
         return deathMessageService;

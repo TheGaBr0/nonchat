@@ -1,10 +1,10 @@
 package com.nonxedy.nonchat.adapter.v1_20_R4;
 
+import com.nonxedy.nonchat.adapter.v1_19_R3.AbstractBubblePlatformAdapter;
 import com.nonxedy.nonchat.api.IMessageHandler;
-import com.nonxedy.nonchat.api.ServiceAdapter;
 import org.bukkit.event.Listener;
 
-public final class PlatformAdapter120 extends ServiceAdapter {
+public final class PlatformAdapter120 extends AbstractBubblePlatformAdapter {
     public PlatformAdapter120() {
         super("1.20");
     }

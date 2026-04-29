@@ -157,7 +157,7 @@ public class PluginConfig {
         config.set("chat-bubbles.scale-x", 1.0);
         config.set("chat-bubbles.scale-y", 1.0);
         config.set("chat-bubbles.scale-z", 1.0);
-        config.set("chat-bubbles.background-color", "#000000");
+        config.set("chat-bubbles.background-color", "#00000000");
         
         // Create default channel configurations
         createDefaultChannels();

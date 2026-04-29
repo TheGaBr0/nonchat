@@ -475,7 +475,7 @@ public final class ColorUtil {
                         + hex.charAt(2) + hex.charAt(2);
             }
 
-            int r, g, b, a;
+            int r, g, b;
 
             if (hex.length() == 6) {
                 // #RRGGBB — full opacity
@@ -483,18 +483,6 @@ public final class ColorUtil {
                 g = Integer.parseInt(hex.substring(2, 4), 16);
                 b = Integer.parseInt(hex.substring(4, 6), 16);
                 return Color.fromRGB(r, g, b);
-
-            } else if (hex.length() == 8) {
-                // #RRGGBBAA — RGB + alpha (config/CSS convention used in nonchat)
-                r = Integer.parseInt(hex.substring(0, 2), 16);
-                g = Integer.parseInt(hex.substring(2, 4), 16);
-                b = Integer.parseInt(hex.substring(4, 6), 16);
-                a = Integer.parseInt(hex.substring(6, 8), 16);
-                if (a <= 0) {
-                    return Color.fromRGB(0, 0, 0);
-                }
-                return Color.fromRGB(r, g, b);
-
             } else {
                 return Color.BLACK;
             }

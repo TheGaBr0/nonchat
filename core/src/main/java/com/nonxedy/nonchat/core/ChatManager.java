@@ -9,7 +9,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.bukkit.Bukkit;
-import org.bukkit.Color;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
@@ -26,7 +25,6 @@ import com.nonxedy.nonchat.util.chat.filters.AdDetector;
 import com.nonxedy.nonchat.util.chat.filters.CapsFilter;
 import com.nonxedy.nonchat.util.chat.filters.SpamDetector;
 import com.nonxedy.nonchat.util.chat.filters.WordBlocker;
-import com.nonxedy.nonchat.util.chat.packets.DisplayEntityUtil;
 import com.nonxedy.nonchat.util.core.colors.ColorUtil;
 
 import me.clip.placeholderapi.PlaceholderAPI;
@@ -39,7 +37,7 @@ public class ChatManager {
     private final PluginMessages messages;
     private final ChannelManager channelManager;
     private final Pattern mentionPattern = Pattern.compile("@(\\w+)");
-    private final Map<Player, List<Object>> bubbles = new ConcurrentHashMap<>();
+    private final Map<Player, List<?>> bubbles = new ConcurrentHashMap<>();
     private final Map<Player, ReentrantLock> playerLocks = new ConcurrentHashMap<>();
     private IgnoreCommand ignoreCommand;
     private final AdDetector adDetector;
@@ -327,7 +325,9 @@ public class ChatManager {
         boolean shouldShowBubble = config.isChatBubblesEnabled()
                 && player.hasPermission("nonchat.chatbubbles")
                 && isPublicChannel(channel)
-                && context.messageDelivered;
+                && context.messageDelivered
+                && plugin.getPlatformAdapter() != null
+                && plugin.getPlatformAdapter().supportsChatBubbles();
 
         if (shouldShowBubble) {
             scheduleBubbleCreation(player, messageToSend);
@@ -439,7 +439,7 @@ public class ChatManager {
                         try {
                             Player player = entry.getKey();
                             Location newLoc = player.getLocation().add(0, config.getChatBubblesHeight(), 0);
-                            DisplayEntityUtil.updateBubblesLocation(entry.getValue(), newLoc);
+                            plugin.getPlatformAdapter().updateBubblesLocation(entry.getValue(), newLoc);
                         } catch (Exception e) {
                             plugin.logError("Error updating bubbles for player " + entry.getKey().getName() + ": "
                                     + e.getMessage());
@@ -450,7 +450,7 @@ public class ChatManager {
             bubbles.entrySet().removeIf(entry -> {
                 try {
                     if (!entry.getKey().isOnline()) {
-                        DisplayEntityUtil.removeBubbles(entry.getValue());
+                        plugin.getPlatformAdapter().removeBubbles(entry.getValue());
                         return true;
                     }
                 } catch (Exception e) {
@@ -472,12 +472,9 @@ public class ChatManager {
         try {
             Location loc = player.getLocation().add(0, config.getChatBubblesHeight(), 0);
 
-            // Get background color from config
-            Color backgroundColor = ColorUtil.parseHexColor(config.getChatBubblesBackgroundColor());
-
-            List<Object> playerBubbles = DisplayEntityUtil.spawnMultilineBubble(player, message, loc,
+            List<?> playerBubbles = plugin.getPlatformAdapter().spawnMultilineBubble(player, message, loc,
                     config.getChatBubblesScale(), config.getChatBubblesScaleX(), config.getChatBubblesScaleY(),
-                    config.getChatBubblesScaleZ(), backgroundColor);
+                    config.getChatBubblesScaleZ(), config.getChatBubblesBackgroundColor());
 
             // Only add bubbles if they were successfully created
             if (playerBubbles != null && !playerBubbles.isEmpty()) {
@@ -517,9 +514,9 @@ public class ChatManager {
 
     private void removeBubble(Player player) {
         try {
-            List<Object> playerBubbles = bubbles.remove(player);
+            List<?> playerBubbles = bubbles.remove(player);
             if (playerBubbles != null) {
-                DisplayEntityUtil.removeBubbles(playerBubbles);
+                plugin.getPlatformAdapter().removeBubbles(playerBubbles);
             }
         } catch (Exception e) {
             plugin.logError("Error removing bubbles for player " + player.getName() + ": " + e.getMessage());
@@ -837,7 +834,9 @@ public class ChatManager {
         if (asyncFilterService != null) {
             asyncFilterService.shutdown();
         }
-        bubbles.values().forEach(DisplayEntityUtil::removeBubbles);
+        if (plugin.getPlatformAdapter() != null) {
+            bubbles.values().forEach(plugin.getPlatformAdapter()::removeBubbles);
+        }
         bubbles.clear();
         playerLocks.clear();
     }
