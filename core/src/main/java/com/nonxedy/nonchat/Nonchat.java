@@ -2,11 +2,13 @@ package com.nonxedy.nonchat;
 
 import java.io.File;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.logging.Level;
 
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import com.nonxedy.nonchat.api.Channel;
 import com.nonxedy.nonchat.api.ChannelAPI;
 import com.nonxedy.nonchat.api.IPlatformAdapter;
 import com.nonxedy.nonchat.command.impl.IgnoreCommand;
@@ -36,9 +38,10 @@ import com.nonxedy.nonchat.util.core.debugging.Debugger;
 import com.nonxedy.nonchat.util.core.updates.UpdateChecker;
 import com.nonxedy.nonchat.util.integration.external.IntegrationUtil;
 
+import dev.faststats.bukkit.BukkitMetrics;
+import dev.faststats.core.ErrorTracker;
+import dev.faststats.core.data.Metric;
 import lombok.extern.slf4j.Slf4j;
-import net.kyori.adventure.text.Component;
-
 @Slf4j
 public class Nonchat extends JavaPlugin {
 
@@ -61,6 +64,17 @@ public class Nonchat extends JavaPlugin {
     private PlayerCleanupListener playerCleanupListener;
     private MentionTabCompleteListener mentionTabCompleteListener;
     private IPlatformAdapter platformAdapter;
+
+    public static final ErrorTracker ERROR_TRACKER = ErrorTracker.contextAware();
+    private final BukkitMetrics metrics = BukkitMetrics.factory()
+        .token("b1aef8463d939edcdbdd4027352dcc86")
+        .addMetric(Metric.number("worlds", () -> getServer().getWorlds().size()))
+        .addMetric(Metric.number("plugins", () -> getServer().getPluginManager().getPlugins().length))
+        .addMetric(Metric.number("players_online", () -> getServer().getOnlinePlayers().size()))
+        .errorTracker(ERROR_TRACKER)
+        .debug(true)
+        .onFlush(() -> resetCounters()) // Useful for cleaning up data, invalidating caches, or resetting counters
+        .create(this);
 
     @Override
     public void onEnable() {
@@ -166,9 +180,6 @@ public class Nonchat extends JavaPlugin {
         try {
             this.placeholderManager = new InteractivePlaceholderManager();
 
-            // Register built-in placeholders
-            registerBuiltInPlaceholders();
-
             // Load custom placeholders from config
             configService.loadCustomPlaceholdersFromConfig(placeholderManager);
 
@@ -177,11 +188,6 @@ public class Nonchat extends JavaPlugin {
             getLogger().log(Level.SEVERE, "Failed to initialize interactive placeholders: {0}", e.getMessage());
             throw new RuntimeException("Failed to initialize interactive placeholders", e);
         }
-    }
-
-    private void registerBuiltInPlaceholders() {
-        // Built-in placeholders are now loaded from config in ConfigService.loadCustomPlaceholdersFromConfig()
-        getLogger().info("Built-in interactive placeholders will be loaded from config");
     }
 
     private void reloadInteractivePlaceholders() {
@@ -283,17 +289,17 @@ public class Nonchat extends JavaPlugin {
             new DiscordSRVHook(this);
             ChannelAPI.initialize(new ChannelAPI.ChannelAccess() {
                 @Override
-                public java.util.Collection<com.nonxedy.nonchat.api.Channel> getAllChannels() {
+                public Collection<Channel> getAllChannels() {
                     return chatManager.getChannelManager().getAllChannels();
                 }
 
                 @Override
-                public com.nonxedy.nonchat.api.Channel getChannel(String channelId) {
+                public Channel getChannel(String channelId) {
                     return chatManager.getChannelManager().getChannel(channelId);
                 }
 
                 @Override
-                public com.nonxedy.nonchat.api.Channel getPlayerChannel(org.bukkit.entity.Player player) {
+                public Channel getPlayerChannel(org.bukkit.entity.Player player) {
                     return chatManager.getPlayerChannel(player);
                 }
             });

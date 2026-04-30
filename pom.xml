@@ -39,6 +39,7 @@
     <snakeyaml.version>2.6</snakeyaml.version>
     <discordsrv.version>1.28.0</discordsrv.version>
     <commonslang.version>3.20.0</commonslang.version>
+    <faststats.version>0.22.0</faststats.version>
   </properties>
 
   <repositories>
@@ -134,6 +135,11 @@
         <groupId>org.apache.commons</groupId>
         <artifactId>commons-lang3</artifactId>
         <version>${commonslang.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>dev.faststats.metrics</groupId>
+        <artifactId>bukkit</artifactId>
+        <version>${faststats.version}</version>
       </dependency>
     </dependencies>
   </dependencyManagement>

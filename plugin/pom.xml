@@ -106,6 +106,10 @@
                   <pattern>org.apache.commons.lang3</pattern>
                   <shadedPattern>com.nonxedy.nonchat.libs.commonslang3</shadedPattern>
                 </relocation>
+                <relocation>
+                  <pattern>dev.faststats</pattern>
+                  <shadedPattern>com.nonxedy.nonchat.libs.faststats</shadedPattern>
+                </relocation>
               </relocations>
 
               <filters>
