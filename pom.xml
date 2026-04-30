@@ -30,11 +30,11 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <java.version>21</java.version>
     <!-- Shared library versions -->
-    <adventure.version>4.26.1</adventure.version>
+    <adventure.version>5.0.1</adventure.version>
     <luckperms.version>5.5</luckperms.version>
     <placeholderapi.version>2.12.2</placeholderapi.version>
     <vault.version>1.7.1</vault.version>
-    <lombok.version>1.18.44</lombok.version>
+    <lombok.version>1.18.46</lombok.version>
     <caffeine.version>3.2.3</caffeine.version>
     <snakeyaml.version>2.6</snakeyaml.version>
     <discordsrv.version>1.28.0</discordsrv.version>
