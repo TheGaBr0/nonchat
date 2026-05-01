@@ -72,7 +72,7 @@ public class Nonchat extends JavaPlugin {
         .addMetric(Metric.number("plugins", () -> getServer().getPluginManager().getPlugins().length))
         .addMetric(Metric.number("players_online", () -> getServer().getOnlinePlayers().size()))
         .errorTracker(ERROR_TRACKER)
-        .debug(true)
+        .debug(false)
         .onFlush(() -> resetCounters()) // Useful for cleaning up data, invalidating caches, or resetting counters
         .create(this);
 
@@ -91,12 +91,13 @@ public class Nonchat extends JavaPlugin {
             if (!new File(getDataFolder(), "langs/messages_es.yml").exists()) {
                 saveResource("langs/messages_es.yml", false);
             }
-
+            
             initializeServices();
             registerPlaceholders();
             registerListeners();
             setupIntegrations();
-
+            metrics.ready();
+            
             Bukkit.getConsoleSender().sendMessage("§d[nonchat] §aplugin enabled");
         } catch (Exception e) {
             getLogger().log(Level.SEVERE, "Failed to enable plugin: {0}", e.getMessage());
@@ -375,9 +376,20 @@ public class Nonchat extends JavaPlugin {
 
             Bukkit.getConsoleSender().sendMessage("§d[nonchat] §cplugin disabled");
             
+            metrics.shutdown();
+
         } catch (Exception e) {
             getLogger().log(Level.WARNING, "Error during plugin shutdown: {0}", e.getMessage());
         }
+    }
+
+    /**
+     * Resets counters for metrics collection.
+     * This method is called when metrics data is flushed.
+     */
+    private void resetCounters() {
+        // Reset any counters or metrics data here if needed
+        // Currently no specific counters to reset, but method is required by metrics API
     }
 
     @Override
