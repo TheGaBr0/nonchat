@@ -1,5 +1,6 @@
 package com.nonxedy.nonchat.placeholders.impl;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.bukkit.Bukkit;
@@ -15,13 +16,12 @@ import com.nonxedy.nonchat.util.items.localization.ItemLocalizationUtil;
 
 import me.clip.placeholderapi.PlaceholderAPI;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.TextComponent;
+import net.kyori.adventure.text.JoinConfiguration;
 import net.kyori.adventure.text.TextReplacementConfig;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 
 /**
  * A configurable interactive placeholder that reads its settings from
@@ -181,22 +181,19 @@ public class ConfigurablePlaceholder implements InteractivePlaceholder {
     }
 
     private Component createHoverComponent(Player player) {
-        TextComponent.Builder builder = Component.text();
-
-        for (String line : hoverText) {
-            if (builder.children().isEmpty()) {
-                // First line
-                Component processedLine = processPlaceholders(player, line);
-                builder.append(processedLine);
-            } else {
-                // Subsequent lines
-                builder.append(Component.newline());
-                Component processedLine = processPlaceholders(player, line);
-                builder.append(processedLine);
-            }
+        if (hoverText == null || hoverText.isEmpty()) {
+            return Component.empty();
         }
 
-        return builder.build();
+        List<Component> lines = new ArrayList<>(hoverText.size());
+        for (String line : hoverText) {
+            lines.add(processPlaceholders(player, line));
+        }
+
+        return Component.join(
+            JoinConfiguration.newlines(),
+            lines
+        );
     }
 
     private Component processPlaceholders(Player player, String text) {
