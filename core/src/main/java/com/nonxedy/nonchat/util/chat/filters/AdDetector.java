@@ -14,7 +14,10 @@ import com.nonxedy.nonchat.config.PluginConfig;
 import me.clip.placeholderapi.PlaceholderAPI;
 
 public class AdDetector implements MessageFilter {
-    private static final Pattern pattern = Pattern.compile("([\\w+]+://)?([\\w-]+\\.)*[\\w-]+[.:]\\w+([/?=&#.]?[\\w-]+)*/?", Pattern.CASE_INSENSITIVE);
+    private static final Pattern pattern = Pattern.compile(
+            "([\\w+]+://)?([\\w-]+\\.)*[\\w-]+\\.[a-zA-Z]{2,}([/?=&#.]?[\\w-]+)*/?",
+            Pattern.CASE_INSENSITIVE
+    );
 
     private final List<String> whitelistedUrls;
     private final float sensitivity;
