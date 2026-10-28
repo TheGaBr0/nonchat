@@ -15,9 +15,9 @@ import org.bukkit.entity.Player;
  * Utility methods for completing and sanitizing player mentions in chat-like input.
  */
 public final class MentionCompletionUtil {
-    private static final Pattern MENTION_TOKEN_PATTERN = Pattern.compile(
-            "(?<!\\w)@(\\w+)\\b(?!(?:\\.[a-zA-Z0-9]|://|:\\d|/\\w))"
-                    + "|(?<![\\w@./:-])\\b(\\w+)\\b(?!(?:\\.[a-zA-Z0-9]|://|:\\d|/\\w))");
+    private static final String NOT_FOLLOWED_BY_LINK = "(?!(?:\\.[a-zA-Z0-9]|://|:\\d|/\\w))";
+    private static volatile String tokenPatternName;
+    private static volatile Pattern tokenPattern;
     private static final Pattern MULTI_WHITESPACE_PATTERN = Pattern.compile("\\s{2,}");
 
     private MentionCompletionUtil() {
@@ -108,7 +108,7 @@ public final class MentionCompletionUtil {
             return message;
         }
 
-        Matcher matcher = MENTION_TOKEN_PATTERN.matcher(message);
+        Matcher matcher = mentionTokenPattern().matcher(message);
         StringBuilder stripped = null;
         int lastEnd = 0;
 
@@ -131,6 +131,18 @@ public final class MentionCompletionUtil {
 
         stripped.append(message, lastEnd, message.length());
         return MULTI_WHITESPACE_PATTERN.matcher(stripped.toString()).replaceAll(" ").trim();
+    }
+
+    private static Pattern mentionTokenPattern() {
+        String name = MentionPatterns.nameRegex();
+        Pattern pattern = tokenPattern;
+        if (pattern == null || !name.equals(tokenPatternName)) {
+            pattern = Pattern.compile("(?<!\\w)@(" + name + ")\\b" + NOT_FOLLOWED_BY_LINK
+                    + "|(?<![\\w@./:-])(" + name + ")\\b" + NOT_FOLLOWED_BY_LINK);
+            tokenPattern = pattern;
+            tokenPatternName = name;
+        }
+        return pattern;
     }
 
     /**
